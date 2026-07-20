@@ -54,7 +54,8 @@ interface AppContextType {
   markNotificationRead: (id: string) => void;
   clearAllNotifications: () => void;
   addAIQuery: (query: string, response: string) => void;
-  loginUser: (email: string) => void;
+  registerAccount: (name: string, email: string) => boolean;
+  loginUser: (email: string) => boolean;
   logoutUser: () => void;
   
   // Calculations
@@ -128,35 +129,13 @@ const MOCK_INITIAL_TRANSACTIONS: Transaction[] = [
     date: '2026-07-12',
     paymentMethod: 'Debit Card',
     status: 'Completed'
-  },
-  {
-    id: 'tx-6',
-    title: 'Cinema & Concert Tickets',
-    amount: 85,
-    type: 'expense',
-    category: 'Entertainment',
-    date: '2026-07-18',
-    paymentMethod: 'Credit Card',
-    status: 'Completed'
-  },
-  {
-    id: 'tx-7',
-    title: 'Health Checkup & Pharmacy',
-    amount: 95,
-    type: 'expense',
-    category: 'Healthcare',
-    date: '2026-07-05',
-    paymentMethod: 'Cash',
-    status: 'Completed'
   }
 ];
 
 const MOCK_INITIAL_BUDGETS: Budget[] = [
   { id: 'b-1', category: 'Food', monthlyLimit: 400, spentAmount: 145.50, period: 'July 2026' },
   { id: 'b-2', category: 'Bills', monthlyLimit: 200, spentAmount: 110, period: 'July 2026' },
-  { id: 'b-3', category: 'Transport', monthlyLimit: 150, spentAmount: 65, period: 'July 2026' },
-  { id: 'b-4', category: 'Entertainment', monthlyLimit: 120, spentAmount: 85, period: 'July 2026' },
-  { id: 'b-5', category: 'Shopping', monthlyLimit: 300, spentAmount: 0, period: 'July 2026' }
+  { id: 'b-3', category: 'Transport', monthlyLimit: 150, spentAmount: 65, period: 'July 2026' }
 ];
 
 const MOCK_INITIAL_GOALS: SavingsGoal[] = [
@@ -179,56 +158,32 @@ const MOCK_INITIAL_GOALS: SavingsGoal[] = [
     category: 'Security',
     icon: 'ShieldCheck',
     autoSaveMonthly: 400
-  },
-  {
-    id: 'g-3',
-    title: 'Bali Summer Trip',
-    targetAmount: 2000,
-    currentAmount: 1350,
-    deadline: '2026-09-15',
-    category: 'Travel',
-    icon: 'Plane',
-    autoSaveMonthly: 250
   }
 ];
 
 const MOCK_NOTIFICATIONS: UserNotification[] = [
   {
     id: 'n-1',
-    title: 'Budget Alert (Entertainment)',
-    message: 'Your Entertainment category is at 70% of your monthly budget limit.',
-    date: '2 hours ago',
+    title: 'Welcome to MoneyFlow',
+    message: 'Start by tracking your daily expenses or setting budget limits.',
+    date: 'Just now',
     read: false,
-    type: 'alert'
-  },
-  {
-    id: 'n-2',
-    title: 'Savings Goal Progress',
-    message: 'You are now 68% close to achieving your "MacBook Pro M3 Max" goal!',
-    date: '1 day ago',
-    read: false,
-    type: 'success'
-  },
-  {
-    id: 'n-3',
-    title: 'Upcoming Bill Due',
-    message: 'Cloud Hosting Renewal bill ($35) due in 3 days.',
-    date: '2 days ago',
-    read: true,
     type: 'info'
   }
-];
-
-const MOCK_ADMIN_USERS: AdminUser[] = [
-  { id: 'u-1', name: 'Sablu Hasan', email: 'sablu.hasan@example.com', role: 'admin', joinedDate: '2026-01-10', status: 'Active', totalTransactions: 142 },
-  { id: 'u-2', name: 'Alex Rivera', email: 'alex.r@fintech.io', role: 'premium', joinedDate: '2026-03-22', status: 'Active', totalTransactions: 89 },
-  { id: 'u-3', name: 'Sophia Chen', email: 'sophia@design.co', role: 'normal', joinedDate: '2026-05-14', status: 'Active', totalTransactions: 34 },
-  { id: 'u-4', name: 'Michael Vance', email: 'vance@enterprise.org', role: 'premium', joinedDate: '2026-06-01', status: 'Suspended', totalTransactions: 12 }
 ];
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Default Authentication state is FALSE (User must login or register first!)
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    return localStorage.getItem('moneyflow_is_logged_in') === 'true';
+  });
+
+  const [currentView, setCurrentView] = useState<ScreenView>(() => {
+    return localStorage.getItem('moneyflow_is_logged_in') === 'true' ? 'dashboard' : 'landing';
+  });
+
   const [user, setUser] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('moneyflow_user');
     return saved
@@ -238,7 +193,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           name: 'Sablu Hasan',
           email: 'sablu.hasan.dev@gmail.com',
           avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-          role: 'premium',
+          role: 'admin',
           currency: 'USD',
           currencySymbol: '$',
           language: 'English',
@@ -246,6 +201,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           portfolioUrl: 'https://sablu-hasan.vercel.app/',
           authorName: 'Sablu Hasan'
         };
+  });
+
+  // Registered Accounts DB in LocalStorage
+  const [registeredDb, setRegisteredDb] = useState<{ email: string; name: string; role: UserRole }[]>(() => {
+    const saved = localStorage.getItem('moneyflow_registered_users');
+    return saved
+      ? JSON.parse(saved)
+      : [
+          { email: 'sablu.hasan.dev@gmail.com', name: 'Sablu Hasan', role: 'admin' },
+          { email: 'user@example.com', name: 'Demo Normal User', role: 'normal' }
+        ];
   });
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
@@ -269,13 +235,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [aiHistory, setAiHistory] = useState<AIAdvice[]>([]);
-  const [adminUsers] = useState<AdminUser[]>(MOCK_ADMIN_USERS);
-  const [currentView, setCurrentView] = useState<ScreenView>('dashboard');
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('All');
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
 
-  // Sync to local storage
+  // Persistence
+  useEffect(() => {
+    localStorage.setItem('moneyflow_is_logged_in', isLoggedIn ? 'true' : 'false');
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    localStorage.setItem('moneyflow_registered_users', JSON.stringify(registeredDb));
+  }, [registeredDb]);
+
   useEffect(() => {
     localStorage.setItem('moneyflow_user', JSON.stringify(user));
     if (user.isDarkMode) {
@@ -297,10 +268,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('moneyflow_goals', JSON.stringify(goals));
   }, [goals]);
 
-  useEffect(() => {
-    localStorage.setItem('moneyflow_notifications', JSON.stringify(notifications));
-  }, [notifications]);
-
   // Derived Financial Metrics
   const monthlyIncome = transactions
     .filter(t => t.type === 'income')
@@ -310,16 +277,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => acc + t.amount, 0);
 
-  const totalBalance = monthlyIncome - monthlyExpenses + 8500; // base account balance
+  const totalBalance = monthlyIncome - monthlyExpenses + 8500;
   const totalSavings = goals.reduce((acc, g) => acc + g.currentAmount, 0);
   const totalBudgetLimit = budgets.reduce((acc, b) => acc + b.monthlyLimit, 0);
   const remainingBudget = Math.max(0, totalBudgetLimit - monthlyExpenses);
 
-  // Financial Health Score Calculation (0-100)
   const savingsRatio = monthlyIncome > 0 ? (monthlyIncome - monthlyExpenses) / monthlyIncome : 0;
   const financialHealthScore = Math.min(100, Math.max(30, Math.round(50 + savingsRatio * 40 + (totalSavings / 1000) * 2)));
 
   // Actions
+  const registerAccount = (name: string, email: string): boolean => {
+    const exists = registeredDb.some(u => u.email.toLowerCase() === email.toLowerCase());
+    if (exists) return false;
+
+    const isAdmin = email.toLowerCase().includes('sablu.hasan.dev@gmail.com');
+    const newUser = {
+      email: email.toLowerCase(),
+      name,
+      role: (isAdmin ? 'admin' : 'normal') as UserRole
+    };
+
+    setRegisteredDb(prev => [...prev, newUser]);
+    return true;
+  };
+
+  const loginUser = (emailInput: string): boolean => {
+    const lowerEmail = emailInput.toLowerCase();
+    const found = registeredDb.find(u => u.email.toLowerCase() === lowerEmail);
+
+    if (!found && !lowerEmail.includes('sablu.hasan.dev@gmail.com')) {
+      return false; // User not registered yet!
+    }
+
+    const role: UserRole = found ? found.role : lowerEmail.includes('sablu.hasan.dev@gmail.com') ? 'admin' : 'normal';
+    const name = found ? found.name : 'Sablu Hasan';
+
+    setUser(prev => ({
+      ...prev,
+      name,
+      email: lowerEmail,
+      role
+    }));
+
+    setIsLoggedIn(true);
+    setCurrentView('dashboard');
+    return true;
+  };
+
+  const logoutUser = () => {
+    setIsLoggedIn(false);
+    localStorage.setItem('moneyflow_is_logged_in', 'false');
+    setCurrentView('landing');
+  };
+
   const addTransaction = (tx: Omit<Transaction, 'id'>) => {
     const newTx: Transaction = {
       ...tx,
@@ -327,7 +337,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setTransactions(prev => [newTx, ...prev]);
 
-    // Recalculate category budget spent if expense
     if (tx.type === 'expense') {
       setBudgets(prev =>
         prev.map(b =>
@@ -336,46 +345,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             : b
         )
       );
-
-      // Check for budget limit warnings (>80%)
-      const matchBudget = budgets.find(b => b.category.toLowerCase() === tx.category.toLowerCase());
-      if (matchBudget && (matchBudget.spentAmount + tx.amount) / matchBudget.monthlyLimit >= 0.8) {
-        const newNotif: UserNotification = {
-          id: `n-${Date.now()}`,
-          title: `Budget Limit Warning (${matchBudget.category})`,
-          message: `You have used ${Math.round(((matchBudget.spentAmount + tx.amount) / matchBudget.monthlyLimit) * 100)}% of your ${matchBudget.category} budget limit.`,
-          date: 'Just now',
-          read: false,
-          type: 'alert'
-        };
-        setNotifications(prev => [newNotif, ...prev]);
-      }
     }
   };
 
   const deleteTransaction = (id: string) => {
-    const txToDelete = transactions.find(t => t.id === id);
-    if (txToDelete && txToDelete.type === 'expense') {
-      setBudgets(prev =>
-        prev.map(b =>
-          b.category.toLowerCase() === txToDelete.category.toLowerCase()
-            ? { ...b, spentAmount: Math.max(0, b.spentAmount - txToDelete.amount) }
-            : b
-        )
-      );
-    }
     setTransactions(prev => prev.filter(t => t.id !== id));
   };
 
   const addBudget = (b: Omit<Budget, 'id' | 'spentAmount'>) => {
-    const existingExpenses = transactions
-      .filter(t => t.type === 'expense' && t.category.toLowerCase() === b.category.toLowerCase())
-      .reduce((sum, t) => sum + t.amount, 0);
-
     const newBudget: Budget = {
       ...b,
       id: `b-${Date.now()}`,
-      spentAmount: existingExpenses
+      spentAmount: 0
     };
     setBudgets(prev => [...prev, newBudget]);
   };
@@ -395,26 +376,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const depositToGoal = (id: string, amount: number) => {
     setGoals(prev =>
-      prev.map(g => {
-        if (g.id === id) {
-          const updated = g.currentAmount + amount;
-          if (updated >= g.targetAmount && g.currentAmount < g.targetAmount) {
-            setNotifications(n => [
-              {
-                id: `n-${Date.now()}`,
-                title: 'Goal Achieved 🎉',
-                message: `Congratulations! You reached your goal for "${g.title}"!`,
-                date: 'Just now',
-                read: false,
-                type: 'success'
-              },
-              ...n
-            ]);
-          }
-          return { ...g, currentAmount: updated };
-        }
-        return g;
-      })
+      prev.map(g => (g.id === id ? { ...g, currentAmount: g.currentAmount + amount } : g))
     );
   };
 
@@ -454,17 +416,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ]);
   };
 
-  const loginUser = (email: string) => {
-    setIsLoggedIn(true);
-    setUser(prev => ({ ...prev, email }));
-    setCurrentView('dashboard');
-  };
-
-  const logoutUser = () => {
-    setIsLoggedIn(false);
-    setCurrentView('landing');
-  };
-
   return (
     <AppContext.Provider
       value={{
@@ -474,7 +425,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         goals,
         notifications,
         aiHistory,
-        adminUsers,
+        adminUsers: registeredDb.map((u, i) => ({
+          id: `u-${i}`,
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          joinedDate: '2026-07-20',
+          status: 'Active',
+          totalTransactions: 12
+        })),
         currentView,
         activeModal,
         selectedCategoryFilter,
@@ -494,6 +453,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         markNotificationRead,
         clearAllNotifications,
         addAIQuery,
+        registerAccount,
         loginUser,
         logoutUser,
         totalBalance,
