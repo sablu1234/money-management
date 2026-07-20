@@ -9,7 +9,8 @@ import type {
   CurrencyCode,
   AIAdvice,
   AdminUser,
-  AccountStatus
+  AccountStatus,
+  MonthlyBudgetTarget
 } from '../types';
 import { syncTransactionToGoogleSheet, GOOGLE_SHEET_URL } from '../services/googleSheetSync';
 
@@ -50,6 +51,7 @@ interface AppContextType {
   isLoggedIn: boolean;
   adminPassword: string;
   googleSheetUrl: string;
+  monthlySavingsHistory: MonthlyBudgetTarget[];
   
   // Actions
   setCurrentView: (view: ScreenView) => void;
@@ -66,6 +68,11 @@ interface AppContextType {
   markNotificationRead: (id: string) => void;
   clearAllNotifications: () => void;
   addAIQuery: (query: string, response: string) => void;
+  
+  // New Monthly Budget & Savings Actions
+  updateRunningMonthTargetBudget: (targetAmount: number) => void;
+  updateAccumulatedSavingsAmount: (newSavingsAmount: number) => void;
+  rolloverRemainingSavingsToNextMonth: () => void;
   
   // Auth & Admin Actions
   registerAccount: (name: string, email: string, password: string) => { success: boolean; message: string };
@@ -140,7 +147,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           language: 'English',
           isDarkMode: true,
           portfolioUrl: 'https://sablu-hasan.vercel.app/',
-          authorName: 'Sablu Hasan'
+          authorName: 'Sablu Hasan',
+          runningMonthTargetBudget: 1500,
+          totalAccumulatedSavings: 0
         };
   });
 
@@ -157,6 +166,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [goals, setGoals] = useState<SavingsGoal[]>(() => {
     const saved = localStorage.getItem('moneyflow_goals');
     return saved ? JSON.parse(saved) : [];
+  });
+
+  const [monthlySavingsHistory, setMonthlySavingsHistory] = useState<MonthlyBudgetTarget[]>(() => {
+    const saved = localStorage.getItem('moneyflow_savings_history');
+    return saved
+      ? JSON.parse(saved)
+      : [
+          { month: 'June 2026', targetBudget: 1200, runningSpend: 850, savingsAchieved: 350, isRolledOver: true },
+          { month: 'May 2026', targetBudget: 1000, runningSpend: 720, savingsAchieved: 280, isRolledOver: true }
+        ];
   });
 
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
@@ -198,6 +217,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('moneyflow_goals', JSON.stringify(goals));
   }, [goals]);
 
+  useEffect(() => {
+    localStorage.setItem('moneyflow_savings_history', JSON.stringify(monthlySavingsHistory));
+  }, [monthlySavingsHistory]);
+
   const adminUsers: AdminUser[] = registeredUsers.map((u, i) => ({
     id: `u-${i}`,
     name: u.name,
@@ -217,13 +240,77 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     .reduce((acc, t) => acc + t.amount, 0);
 
   const totalBalance = monthlyIncome - monthlyExpenses;
-  const totalSavings = goals.reduce((acc, g) => acc + g.currentAmount, 0);
-  const totalBudgetLimit = budgets.reduce((acc, b) => acc + b.monthlyLimit, 0);
+  const totalSavings = (user.totalAccumulatedSavings || 0) + goals.reduce((acc, g) => acc + g.currentAmount, 0);
+  const totalBudgetLimit = user.runningMonthTargetBudget || 1500;
   const remainingBudget = Math.max(0, totalBudgetLimit - monthlyExpenses);
 
   const financialHealthScore = transactions.length === 0
     ? 100
     : Math.min(100, Math.max(30, Math.round(50 + ((monthlyIncome - monthlyExpenses) / (monthlyIncome || 1)) * 40)));
+
+  // NEW MONTHLY BUDGET & SAVINGS ACTIONS
+  const updateRunningMonthTargetBudget = (targetAmount: number) => {
+    setUser(prev => ({ ...prev, runningMonthTargetBudget: targetAmount }));
+
+    syncTransactionToGoogleSheet({
+      date: new Date().toISOString().split('T')[0],
+      userName: user.name,
+      userEmail: user.email,
+      title: 'Updated Monthly Target Budget',
+      type: 'Budget Target',
+      category: 'Budget Setting',
+      amount: targetAmount,
+      paymentMethod: 'System',
+      notes: `Set running month target budget to ${user.currencySymbol}${targetAmount}`
+    });
+  };
+
+  const updateAccumulatedSavingsAmount = (newSavingsAmount: number) => {
+    setUser(prev => ({ ...prev, totalAccumulatedSavings: newSavingsAmount }));
+
+    syncTransactionToGoogleSheet({
+      date: new Date().toISOString().split('T')[0],
+      userName: user.name,
+      userEmail: user.email,
+      title: 'Manual Savings Amount Adjustment',
+      type: 'Savings Adjustment',
+      category: 'Savings',
+      amount: newSavingsAmount,
+      paymentMethod: 'System',
+      notes: `Adjusted total accumulated savings to ${user.currencySymbol}${newSavingsAmount}`
+    });
+  };
+
+  const rolloverRemainingSavingsToNextMonth = () => {
+    const currentSavingsThisMonth = Math.max(0, monthlyIncome - monthlyExpenses);
+    const updatedTotalSavings = (user.totalAccumulatedSavings || 0) + currentSavingsThisMonth;
+
+    setUser(prev => ({ ...prev, totalAccumulatedSavings: updatedTotalSavings }));
+
+    const currentMonthLabel = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+    setMonthlySavingsHistory(prev => [
+      {
+        month: currentMonthLabel,
+        targetBudget: user.runningMonthTargetBudget,
+        runningSpend: monthlyExpenses,
+        savingsAchieved: currentSavingsThisMonth,
+        isRolledOver: true
+      },
+      ...prev
+    ]);
+
+    syncTransactionToGoogleSheet({
+      date: new Date().toISOString().split('T')[0],
+      userName: user.name,
+      userEmail: user.email,
+      title: 'Monthly Savings Rolled Over',
+      type: 'Rollover Savings',
+      category: 'Savings',
+      amount: currentSavingsThisMonth,
+      paymentMethod: 'System',
+      notes: `Rolled over ${user.currencySymbol}${currentSavingsThisMonth} remaining savings to next month!`
+    });
+  };
 
   // AUTH ACTIONS
   const registerAccount = (name: string, email: string, password: string) => {
@@ -246,7 +333,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setRegisteredUsers(prev => [...prev, newAcc]);
 
-    // Also sync registration to Google Sheet!
     syncTransactionToGoogleSheet({
       date: new Date().toISOString().split('T')[0],
       userName: name,
@@ -342,6 +428,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTransactions([]);
     setBudgets([]);
     setGoals([]);
+    setUser(prev => ({ ...prev, totalAccumulatedSavings: 0 }));
     localStorage.removeItem('moneyflow_transactions');
     localStorage.removeItem('moneyflow_budgets');
     localStorage.removeItem('moneyflow_goals');
@@ -364,7 +451,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     }
 
-    // Auto Sync Transaction Data to Google Sheet!
     syncTransactionToGoogleSheet({
       date: tx.date,
       userName: user.name,
@@ -448,6 +534,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isLoggedIn,
         adminPassword,
         googleSheetUrl: GOOGLE_SHEET_URL,
+        monthlySavingsHistory,
         setCurrentView,
         setActiveModal,
         setSelectedCategoryFilter,
@@ -469,6 +556,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rejectUser,
         changeAdminPassword,
         resetAllDataToZero,
+        updateRunningMonthTargetBudget,
+        updateAccumulatedSavingsAmount,
+        rolloverRemainingSavingsToNextMonth,
         totalBalance,
         monthlyIncome,
         monthlyExpenses,

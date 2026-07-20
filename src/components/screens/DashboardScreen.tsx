@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Wallet,
@@ -12,7 +12,12 @@ import {
   AlertTriangle,
   FileSpreadsheet,
   Bot,
-  ChevronRight
+  ChevronRight,
+  Target,
+  Edit2,
+  Calendar,
+  Sparkles,
+  CheckCircle2
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -49,11 +54,54 @@ export const DashboardScreen: React.FC = () => {
     totalSavings,
     remainingBudget,
     financialHealthScore,
+    monthlySavingsHistory,
+    updateRunningMonthTargetBudget,
+    updateAccumulatedSavingsAmount,
+    rolloverRemainingSavingsToNextMonth,
     setCurrentView,
     setActiveModal
   } = useApp();
 
-  // Data for Recharts Pie Chart (Expenses by Category)
+  // Budget & Savings Target States
+  const [editingTargetBudget, setEditingTargetBudget] = useState(false);
+  const [targetBudgetInput, setTargetBudgetInput] = useState(user.runningMonthTargetBudget ? String(user.runningMonthTargetBudget) : '1500');
+
+  const [editingSavings, setEditingSavings] = useState(false);
+  const [savingsInput, setSavingsInput] = useState(String(user.totalAccumulatedSavings || 0));
+
+  const [rolloverSuccess, setRolloverSuccess] = useState('');
+
+  // Current Running Month Spend Calculation
+  const currentMonthName = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+  const runningMonthTarget = user.runningMonthTargetBudget || 1500;
+  const runningMonthSpendPct = Math.min(100, Math.round((monthlyExpenses / runningMonthTarget) * 100));
+  const currentMonthSavings = Math.max(0, monthlyIncome - monthlyExpenses);
+
+  const handleSaveTargetBudget = (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseFloat(targetBudgetInput);
+    if (!isNaN(val) && val >= 0) {
+      updateRunningMonthTargetBudget(val);
+      setEditingTargetBudget(false);
+    }
+  };
+
+  const handleSaveSavings = (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseFloat(savingsInput);
+    if (!isNaN(val) && val >= 0) {
+      updateAccumulatedSavingsAmount(val);
+      setEditingSavings(false);
+    }
+  };
+
+  const handleRollover = () => {
+    rolloverRemainingSavingsToNextMonth();
+    setRolloverSuccess(`Rolled over ${user.currencySymbol}${currentMonthSavings.toFixed(2)} to next month's savings!`);
+    setTimeout(() => setRolloverSuccess(''), 4000);
+  };
+
+  // Recharts Data
   const categoryDataMap: Record<string, number> = {};
   transactions
     .filter(t => t.type === 'expense')
@@ -66,11 +114,10 @@ export const DashboardScreen: React.FC = () => {
     value: categoryDataMap[cat]
   }));
 
-  // Data for Income vs Expense Bar Chart
   const incomeVsExpenseData = [
     { name: 'Income', amount: monthlyIncome },
     { name: 'Expense', amount: monthlyExpenses },
-    { name: 'Savings', amount: totalSavings }
+    { name: 'Savings', amount: currentMonthSavings }
   ];
 
   const recentTransactions = transactions.slice(0, 5);
@@ -86,11 +133,11 @@ export const DashboardScreen: React.FC = () => {
               Welcome back, {user.name}!
             </h1>
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold capitalize">
-              {user.role} Plan
+              {user.role} Member
             </span>
           </div>
           <p className="text-xs text-slate-300 mt-1">
-            Here is your live personal money manager overview & health score.
+            Running Month: <strong className="text-emerald-400">{currentMonthName}</strong> overview & budget tracker.
           </p>
         </div>
 
@@ -100,7 +147,7 @@ export const DashboardScreen: React.FC = () => {
             className="flex-1 md:flex-none px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-700 hover:to-emerald-600 text-white font-extrabold text-xs shadow-lg glow-blue flex items-center justify-center gap-1.5 transition-all"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Transaction</span>
+            <span>Add Entry</span>
           </button>
 
           <button
@@ -113,6 +160,159 @@ export const DashboardScreen: React.FC = () => {
         </div>
       </div>
 
+      {/* NEW FEATURE: Running Month Target Budget & Savings Tracker Header Card */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Card 1: Running Month Target Budget */}
+        <div className="glass-card p-6 rounded-3xl border border-blue-200 dark:border-blue-900/60 bg-blue-500/5 space-y-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-blue-500 text-white">
+                <Target className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-xs font-black uppercase text-slate-900 dark:text-white">Target Budget ({currentMonthName})</h3>
+                <p className="text-[11px] text-slate-400">Monthly Spending Cap</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setEditingTargetBudget(!editingTargetBudget)}
+              className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 hover:bg-blue-200 text-xs font-bold flex items-center gap-1"
+            >
+              <Edit2 className="w-3.5 h-3.5" /> Edit Target
+            </button>
+          </div>
+
+          {editingTargetBudget ? (
+            <form onSubmit={handleSaveTargetBudget} className="flex gap-2">
+              <input
+                type="number"
+                value={targetBudgetInput}
+                onChange={e => setTargetBudgetInput(e.target.value)}
+                className="flex-1 p-2 rounded-xl border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-900 text-xs font-bold"
+              />
+              <button
+                type="submit"
+                className="px-3 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold"
+              >
+                Save
+              </button>
+            </form>
+          ) : (
+            <div>
+              <p className="text-3xl font-black text-blue-600 dark:text-blue-400">
+                {user.currencySymbol}{runningMonthTarget.toLocaleString()}
+              </p>
+              <div className="mt-2 space-y-1">
+                <div className="flex justify-between text-[11px] font-bold text-slate-500">
+                  <span>Spent: {user.currencySymbol}{monthlyExpenses.toFixed(2)}</span>
+                  <span>{runningMonthSpendPct}%</span>
+                </div>
+                <div className="w-full bg-slate-200 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      runningMonthSpendPct > 80 ? 'bg-rose-500' : 'bg-blue-600'
+                    }`}
+                    style={{ width: `${runningMonthSpendPct}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <p className="text-[11px] text-slate-400">
+            Remaining Cap: <strong className="text-slate-900 dark:text-white">{user.currencySymbol}{remainingBudget.toFixed(2)}</strong>
+          </p>
+        </div>
+
+        {/* Card 2: Current Month Savings & Rollover Action */}
+        <div className="glass-card p-6 rounded-3xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-500/5 space-y-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-emerald-500 text-white">
+                <PiggyBank className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-xs font-black uppercase text-slate-900 dark:text-white">Month Net Savings</h3>
+                <p className="text-[11px] text-slate-400">Income minus Expenses</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setEditingSavings(!editingSavings)}
+              className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-200 text-xs font-bold flex items-center gap-1"
+            >
+              <Edit2 className="w-3.5 h-3.5" /> Adjust
+            </button>
+          </div>
+
+          {editingSavings ? (
+            <form onSubmit={handleSaveSavings} className="flex gap-2">
+              <input
+                type="number"
+                value={savingsInput}
+                onChange={e => setSavingsInput(e.target.value)}
+                className="flex-1 p-2 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900 text-xs font-bold"
+              />
+              <button
+                type="submit"
+                className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold"
+              >
+                Save
+              </button>
+            </form>
+          ) : (
+            <div>
+              <p className="text-3xl font-black text-emerald-500">
+                {user.currencySymbol}{currentMonthSavings.toLocaleString()}
+              </p>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Total Accumulation: <strong className="text-emerald-400">{user.currencySymbol}{totalSavings.toLocaleString()}</strong>
+              </p>
+            </div>
+          )}
+
+          {rolloverSuccess && (
+            <p className="text-xs font-bold text-emerald-500 flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5" /> {rolloverSuccess}
+            </p>
+          )}
+
+          <button
+            onClick={handleRollover}
+            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 text-white font-extrabold text-xs shadow-md flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+          >
+            <Sparkles className="w-4 h-4 text-amber-300" />
+            <span>Rollover Savings to Next Month</span>
+          </button>
+        </div>
+
+        {/* Card 3: Month-by-Month Savings History */}
+        <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3 flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-black uppercase text-slate-900 dark:text-white flex items-center gap-1.5">
+              <Calendar className="w-4 h-4 text-indigo-500" />
+              <span>Savings History by Month</span>
+            </h3>
+          </div>
+
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {monthlySavingsHistory.map((item, idx) => (
+              <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 text-xs">
+                <div>
+                  <p className="font-bold text-slate-900 dark:text-white">{item.month}</p>
+                  <p className="text-[10px] text-slate-400">Budget: {user.currencySymbol}{item.targetBudget}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-black text-emerald-500">+{user.currencySymbol}{item.savingsAchieved}</p>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-bold">Rolled Over</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+
       {/* Top 5 Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         
@@ -120,7 +320,7 @@ export const DashboardScreen: React.FC = () => {
         <div className="glass-card p-4 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-2 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Total Balance
+              Net Balance
             </span>
             <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500">
               <Wallet className="w-4 h-4" />
@@ -130,7 +330,7 @@ export const DashboardScreen: React.FC = () => {
             {user.currencySymbol}{totalBalance.toLocaleString()}
           </p>
           <p className="text-[10px] text-emerald-500 font-bold flex items-center gap-1">
-            <ArrowUpRight className="w-3 h-3" /> +12.4% from last month
+            <ArrowUpRight className="w-3 h-3" /> Real-time Net Balance
           </p>
         </div>
 
@@ -148,7 +348,7 @@ export const DashboardScreen: React.FC = () => {
             {user.currencySymbol}{monthlyIncome.toLocaleString()}
           </p>
           <p className="text-[10px] text-slate-400 font-medium">
-            From Salary & Freelance
+            Running month credits
           </p>
         </div>
 
@@ -166,15 +366,15 @@ export const DashboardScreen: React.FC = () => {
             {user.currencySymbol}{monthlyExpenses.toLocaleString()}
           </p>
           <p className="text-[10px] text-slate-400 font-medium">
-            7 category expenses
+            Running month debits
           </p>
         </div>
 
-        {/* Savings Goals */}
+        {/* Total Accumulated Savings */}
         <div className="glass-card p-4 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Savings Amount
+              Accumulated Savings
             </span>
             <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500">
               <PiggyBank className="w-4 h-4" />
@@ -184,15 +384,15 @@ export const DashboardScreen: React.FC = () => {
             {user.currencySymbol}{totalSavings.toLocaleString()}
           </p>
           <p className="text-[10px] text-indigo-500 font-bold">
-            Across 3 active goals
+            Total savings reserve
           </p>
         </div>
 
-        {/* Remaining Budget */}
+        {/* Remaining Cap */}
         <div className="glass-card p-4 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Remaining Budget
+              Remaining Cap
             </span>
             <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
               <PieIcon className="w-4 h-4" />
@@ -236,7 +436,7 @@ export const DashboardScreen: React.FC = () => {
           </div>
 
           <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
-            Your savings ratio is currently <strong>{Math.round(((monthlyIncome - monthlyExpenses)/monthlyIncome)*100)}%</strong>. High health index for Sablu Hasan's portfolio!
+            Your health score is calculated based on current month net savings and spending habits for Sablu Hasan.
           </p>
         </div>
 
@@ -263,7 +463,7 @@ export const DashboardScreen: React.FC = () => {
           <div className="p-3.5 rounded-2xl bg-white/60 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 space-y-1">
             <p className="font-bold text-blue-600 dark:text-blue-400">💡 AI Monthly Tip:</p>
             <p className="text-[11px] leading-relaxed">
-              "Your top expense this month is <strong>Food & Dining ({user.currencySymbol}145.50)</strong>. Reducing dining out by 15% would save an extra <strong>{user.currencySymbol}22/month</strong> towards your MacBook Pro goal!"
+              "You have set a Target Budget of <strong>{user.currencySymbol}{runningMonthTarget}</strong> for {currentMonthName}. You have currently spent <strong>{user.currencySymbol}{monthlyExpenses}</strong> ({runningMonthSpendPct}%). Great budget discipline!"
             </p>
           </div>
         </div>
@@ -277,7 +477,7 @@ export const DashboardScreen: React.FC = () => {
         <div className="glass-card p-5 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-4">
           <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center justify-between">
             <span>Cash Flow Overview</span>
-            <span className="text-xs text-slate-400 font-medium">July 2026</span>
+            <span className="text-xs text-slate-400 font-medium">{currentMonthName}</span>
           </h3>
 
           <div className="h-64 w-full">
@@ -310,7 +510,7 @@ export const DashboardScreen: React.FC = () => {
 
           <div className="h-64 w-full flex items-center justify-center">
             {pieChartData.length === 0 ? (
-              <p className="text-xs text-slate-400">No expense data recorded yet</p>
+              <p className="text-xs text-slate-400">No expense entries recorded yet for {currentMonthName}</p>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -373,26 +573,32 @@ export const DashboardScreen: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
-                {recentTransactions.map(tx => (
-                  <tr key={tx.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                    <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">
-                      {tx.title}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                        {tx.category}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-400 text-[11px]">{tx.date}</td>
-                    <td
-                      className={`py-2.5 px-3 text-right font-extrabold ${
-                        tx.type === 'income' ? 'text-emerald-500' : 'text-slate-900 dark:text-white'
-                      }`}
-                    >
-                      {tx.type === 'income' ? '+' : '-'}{user.currencySymbol}{tx.amount.toFixed(2)}
-                    </td>
+                {recentTransactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-6 text-center text-slate-400">No transactions recorded yet</td>
                   </tr>
-                ))}
+                ) : (
+                  recentTransactions.map(tx => (
+                    <tr key={tx.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                      <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">
+                        {tx.title}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                          {tx.category}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-400 text-[11px]">{tx.date}</td>
+                      <td
+                        className={`py-2.5 px-3 text-right font-extrabold ${
+                          tx.type === 'income' ? 'text-emerald-500' : 'text-slate-900 dark:text-white'
+                        }`}
+                      >
+                        {tx.type === 'income' ? '+' : '-'}{user.currencySymbol}{tx.amount.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -414,25 +620,29 @@ export const DashboardScreen: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            {budgets.slice(0, 4).map(b => {
-              const pct = Math.min(100, Math.round((b.spentAmount / b.monthlyLimit) * 100));
-              return (
-                <div key={b.id} className="space-y-1">
-                  <div className="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    <span>{b.category}</span>
-                    <span>{user.currencySymbol}{b.spentAmount} / {user.currencySymbol}{b.monthlyLimit} ({pct}%)</span>
+            {budgets.length === 0 ? (
+              <p className="text-xs text-slate-400">No category budget limits created yet</p>
+            ) : (
+              budgets.slice(0, 4).map(b => {
+                const pct = Math.min(100, Math.round((b.spentAmount / b.monthlyLimit) * 100));
+                return (
+                  <div key={b.id} className="space-y-1">
+                    <div className="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      <span>{b.category}</span>
+                      <span>{user.currencySymbol}{b.spentAmount} / {user.currencySymbol}{b.monthlyLimit} ({pct}%)</span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          pct > 80 ? 'bg-rose-500' : pct > 60 ? 'bg-amber-500' : 'bg-emerald-500'
+                        }`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        pct > 80 ? 'bg-rose-500' : pct > 60 ? 'bg-amber-500' : 'bg-emerald-500'
-                      }`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 

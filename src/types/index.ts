@@ -26,6 +26,14 @@ export interface Budget {
   period: string;
 }
 
+export interface MonthlyBudgetTarget {
+  month: string; // e.g. '2026-07'
+  targetBudget: number;
+  runningSpend: number;
+  savingsAchieved: number;
+  isRolledOver: boolean;
+}
+
 export interface SavingsGoal {
   id: string;
   title: string;
@@ -59,6 +67,8 @@ export interface UserProfile {
   isDarkMode: boolean;
   portfolioUrl: string;
   authorName: string;
+  runningMonthTargetBudget: number;
+  totalAccumulatedSavings: number;
 }
 
 export interface AIAdvice {
