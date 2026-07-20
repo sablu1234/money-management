@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { User, ExternalLink, Globe, Moon, Sun, CheckCircle2, Smartphone, Shield, Key, RefreshCw } from 'lucide-react';
+import { User, ExternalLink, Globe, Moon, Sun, CheckCircle2, Smartphone, Shield, Key, RefreshCw, Lock, AlertCircle, X } from 'lucide-react';
 import type { CurrencyCode } from '../../types';
 
 export const ProfileScreen: React.FC = () => {
@@ -15,6 +15,11 @@ export const ProfileScreen: React.FC = () => {
   const [newPassInput, setNewPassInput] = useState('');
   const [passMsg, setPassMsg] = useState('');
   const [passError, setPassError] = useState('');
+
+  // Secure Master Reset Modal State
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetPasswordInput, setResetPasswordInput] = useState('');
+  const [resetErrorMsg, setResetErrorMsg] = useState('');
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +47,26 @@ export const ProfileScreen: React.FC = () => {
     setCurrentPassInput('');
     setNewPassInput('');
     setTimeout(() => setPassMsg(''), 4000);
+  };
+
+  const handleExecuteSecureMasterReset = (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetErrorMsg('');
+
+    // Check user password requirement
+    const requiredPassword = user.role === 'admin' ? adminPassword : (localStorage.getItem('moneyflow_user_pass') || 'user123');
+
+    if (resetPasswordInput !== requiredPassword && resetPasswordInput !== adminPassword) {
+      setResetErrorMsg('Incorrect Password! Master data reset cancelled for security.');
+      return;
+    }
+
+    // Password verified! Execute Master Reset
+    resetAllDataToZero();
+    setShowResetModal(false);
+    setResetPasswordInput('');
+    setSavedMsg('All account data & financial balance reset to ৳0.00!');
+    setTimeout(() => setSavedMsg(''), 4000);
   };
 
   return (
@@ -145,7 +170,7 @@ export const ProfileScreen: React.FC = () => {
       {/* Grid of Profile Forms & Preferences */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
-        {/* Personal Details */}
+        {/* Personal Details & Password Protected Reset */}
         <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-4">
           <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
             <User className="w-4 h-4 text-blue-500" />
@@ -197,19 +222,19 @@ export const ProfileScreen: React.FC = () => {
             </button>
           </form>
 
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+          {/* Secure Master Reset Trigger */}
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1">
             <button
               onClick={() => {
-                if (window.confirm('Reset all financial transactions to $0.00?')) {
-                  resetAllDataToZero();
-                  setSavedMsg('All financial balance reset to $0.00!');
-                  setTimeout(() => setSavedMsg(''), 3000);
-                }
+                setShowResetModal(true);
+                setResetErrorMsg('');
+                setResetPasswordInput('');
               }}
               className="w-full py-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
             >
-              <RefreshCw className="w-3.5 h-3.5" /> Reset All Balance to $0.00
+              <RefreshCw className="w-3.5 h-3.5" /> Password Protected Master Data Reset
             </button>
+            <p className="text-[10px] text-slate-400 text-center">Requires account password verification to reset all data.</p>
           </div>
         </div>
 
@@ -275,6 +300,69 @@ export const ProfileScreen: React.FC = () => {
         </div>
 
       </div>
+
+      {/* SECURE MASTER RESET PASSWORD VERIFICATION MODAL */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-sm font-black text-rose-500 flex items-center gap-2">
+                <Lock className="w-4 h-4" /> Master Data Reset - Password Verification
+              </h3>
+              <button
+                onClick={() => setShowResetModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              ⚠️ Warning: You are about to reset all transactions, budgets, goals, and accumulated savings to <strong>৳0.00</strong>.
+              Please enter your password to authorize this action.
+            </p>
+
+            {resetErrorMsg && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{resetErrorMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleExecuteSecureMasterReset} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Enter Password to Authorize Reset
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••••••"
+                  value={resetPasswordInput}
+                  onChange={e => setResetPasswordInput(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-rose-500 outline-none"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowResetModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold shadow flex items-center gap-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Confirm & Reset All Data
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );
