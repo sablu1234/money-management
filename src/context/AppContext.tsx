@@ -69,13 +69,13 @@ interface AppContextType {
   clearAllNotifications: () => void;
   addAIQuery: (query: string, response: string) => void;
   
-  // Monthly Budget & Savings Correction Actions
+  // Monthly Budget & Unique Savings History Actions
   updateRunningMonthTargetBudget: (targetAmount: number) => void;
   updateAccumulatedSavingsAmount: (newSavingsAmount: number) => void;
   rolloverRemainingSavingsToNextMonth: () => void;
   correctMonthlySavingsHistoryItem: (monthLabel: string, correctedSavingsAmount: number) => void;
   deleteMonthlySavingsHistoryItem: (monthLabel: string) => void;
-  addMissingMonthlySavingsItem: (monthLabel: string, targetBudget: number, savingsAchieved: number) => void;
+  addMissingMonthlySavingsItem: (monthLabel: string, targetBudget: number, savingsAchieved: number) => { success: boolean; message: string };
   
   // Auth & Admin Actions
   registerAccount: (name: string, email: string, password: string) => { success: boolean; message: string };
@@ -251,7 +251,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ? 100
     : Math.min(100, Math.max(30, Math.round(50 + ((monthlyIncome - monthlyExpenses) / (monthlyIncome || 1)) * 40)));
 
-  // MONTHLY SAVINGS ACTIONS (ADD, EDIT, DELETE)
+  // UNIQUE MONTHLY SAVINGS ACTIONS (PREVENTS DUPLICATE MONTH ENTRIES!)
   const updateRunningMonthTargetBudget = (targetAmount: number) => {
     setUser(prev => ({ ...prev, runningMonthTargetBudget: targetAmount }));
 
@@ -287,7 +287,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const correctMonthlySavingsHistoryItem = (monthLabel: string, correctedSavingsAmount: number) => {
     setMonthlySavingsHistory(prev =>
       prev.map(item =>
-        item.month === monthLabel
+        item.month.toLowerCase() === monthLabel.toLowerCase()
           ? { ...item, savingsAchieved: correctedSavingsAmount }
           : item
       )
@@ -307,7 +307,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteMonthlySavingsHistoryItem = (monthLabel: string) => {
-    setMonthlySavingsHistory(prev => prev.filter(item => item.month !== monthLabel));
+    setMonthlySavingsHistory(prev => prev.filter(item => item.month.toLowerCase() !== monthLabel.toLowerCase()));
 
     syncTransactionToGoogleSheet({
       date: new Date().toISOString().split('T')[0],
@@ -323,17 +323,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addMissingMonthlySavingsItem = (monthLabel: string, targetBudget: number, savingsAchieved: number) => {
+    const cleanMonthName = monthLabel.trim();
+    const existingIndex = monthlySavingsHistory.findIndex(m => m.month.toLowerCase() === cleanMonthName.toLowerCase());
+
+    if (existingIndex !== -1) {
+      // Update existing month record instead of adding a duplicate!
+      setMonthlySavingsHistory(prev =>
+        prev.map((item, idx) =>
+          idx === existingIndex
+            ? { ...item, targetBudget, savingsAchieved, isRolledOver: true }
+            : item
+        )
+      );
+
+      return {
+        success: true,
+        message: `Updated existing savings record for ${cleanMonthName}!`
+      };
+    }
+
     const newItem: MonthlyBudgetTarget = {
-      month: monthLabel,
+      month: cleanMonthName,
       targetBudget,
-      runningSpend: targetBudget - savingsAchieved,
+      runningSpend: Math.max(0, targetBudget - savingsAchieved),
       savingsAchieved,
       isRolledOver: true
     };
 
     setMonthlySavingsHistory(prev => [newItem, ...prev]);
 
-    // Also increment accumulated savings
     setUser(prev => ({
       ...prev,
       totalAccumulatedSavings: (prev.totalAccumulatedSavings || 0) + savingsAchieved
@@ -343,32 +361,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       date: new Date().toISOString().split('T')[0],
       userName: user.name,
       userEmail: user.email,
-      title: `Added Missing Month Savings (${monthLabel})`,
-      type: 'Add Missing Month',
+      title: `Added Savings Record (${cleanMonthName})`,
+      type: 'Add Month Record',
       category: 'Savings',
       amount: savingsAchieved,
       paymentMethod: 'System',
-      notes: `Added missing month record for ${monthLabel} with savings of ${user.currencySymbol}${savingsAchieved}`
+      notes: `Added month record for ${cleanMonthName} with savings of ${user.currencySymbol}${savingsAchieved}`
     });
+
+    return {
+      success: true,
+      message: `Added savings record for ${cleanMonthName}!`
+    };
   };
 
   const rolloverRemainingSavingsToNextMonth = () => {
     const currentSavingsThisMonth = Math.max(0, monthlyIncome - monthlyExpenses);
     const updatedTotalSavings = (user.totalAccumulatedSavings || 0) + currentSavingsThisMonth;
+    const currentMonthLabel = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 
     setUser(prev => ({ ...prev, totalAccumulatedSavings: updatedTotalSavings }));
 
-    const currentMonthLabel = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
-    setMonthlySavingsHistory(prev => [
-      {
-        month: currentMonthLabel,
-        targetBudget: user.runningMonthTargetBudget,
-        runningSpend: monthlyExpenses,
-        savingsAchieved: currentSavingsThisMonth,
-        isRolledOver: true
-      },
-      ...prev
-    ]);
+    // Check if current month already exists in history
+    const existingIndex = monthlySavingsHistory.findIndex(m => m.month.toLowerCase() === currentMonthLabel.toLowerCase());
+
+    if (existingIndex !== -1) {
+      // Update existing record for current month instead of creating duplicate!
+      setMonthlySavingsHistory(prev =>
+        prev.map((item, idx) =>
+          idx === existingIndex
+            ? {
+                ...item,
+                targetBudget: user.runningMonthTargetBudget,
+                runningSpend: monthlyExpenses,
+                savingsAchieved: currentSavingsThisMonth,
+                isRolledOver: true
+              }
+            : item
+        )
+      );
+    } else {
+      setMonthlySavingsHistory(prev => [
+        {
+          month: currentMonthLabel,
+          targetBudget: user.runningMonthTargetBudget,
+          runningSpend: monthlyExpenses,
+          savingsAchieved: currentSavingsThisMonth,
+          isRolledOver: true
+        },
+        ...prev
+      ]);
+    }
 
     syncTransactionToGoogleSheet({
       date: new Date().toISOString().split('T')[0],
@@ -379,7 +422,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       category: 'Savings',
       amount: currentSavingsThisMonth,
       paymentMethod: 'System',
-      notes: `Rolled over ${user.currencySymbol}${currentSavingsThisMonth} remaining savings to next month!`
+      notes: `Rolled over ${user.currencySymbol}${currentSavingsThisMonth} remaining savings for ${currentMonthLabel}!`
     });
   };
 
