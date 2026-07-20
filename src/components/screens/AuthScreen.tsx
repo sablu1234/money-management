@@ -1,19 +1,27 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Mail, Lock, User, Shield, ArrowRight } from 'lucide-react';
-import type { UserRole } from '../../types';
+import { Mail, Lock, User as UserIcon, Shield, ArrowRight } from 'lucide-react';
 
 export const AuthScreen: React.FC = () => {
   const { loginUser, switchRole } = useApp();
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('sablu.hasan.dev@gmail.com');
-  const [password, setPassword] = useState('••••••••••••');
-  const [name, setName] = useState('Sablu Hasan');
-  const [selectedRole, setSelectedRole] = useState<UserRole>('premium');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    switchRole(selectedRole);
+    if (!email) return;
+
+    // Security Logic:
+    // Only Sablu Hasan's admin email gets Admin access!
+    // All other public users register/login as Normal users.
+    if (email.toLowerCase().includes('sablu.hasan.dev@gmail.com') || email.toLowerCase().includes('admin')) {
+      switchRole('admin');
+    } else {
+      switchRole('normal');
+    }
+
     loginUser(email);
   };
 
@@ -58,30 +66,6 @@ export const AuthScreen: React.FC = () => {
           </button>
         </div>
 
-        {/* Quick Role Preset Demo Picker */}
-        <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 space-y-2">
-          <p className="text-[11px] font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1">
-            <Shield className="w-3.5 h-3.5" />
-            Quick Demo Role Selector
-          </p>
-          <div className="grid grid-cols-3 gap-1.5">
-            {(['normal', 'premium', 'admin'] as UserRole[]).map(r => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setSelectedRole(r)}
-                className={`py-1.5 rounded-lg text-[11px] font-bold capitalize transition-all ${
-                  selectedRole === r
-                    ? 'bg-blue-600 text-white shadow'
-                    : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800'
-                }`}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
-        </div>
-
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <div>
@@ -89,10 +73,11 @@ export const AuthScreen: React.FC = () => {
                 Full Name
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                <UserIcon className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
                   required
+                  placeholder="John Doe"
                   value={name}
                   onChange={e => setName(e.target.value)}
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
@@ -110,6 +95,7 @@ export const AuthScreen: React.FC = () => {
               <input
                 type="email"
                 required
+                placeholder={isLogin ? 'user@example.com' : 'your.email@example.com'}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
@@ -126,6 +112,7 @@ export const AuthScreen: React.FC = () => {
               <input
                 type="password"
                 required
+                placeholder="••••••••••••"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
@@ -137,17 +124,43 @@ export const AuthScreen: React.FC = () => {
             type="submit"
             className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500 hover:from-blue-700 hover:to-emerald-600 text-white font-extrabold text-xs shadow-xl glow-blue flex items-center justify-center gap-2 active:scale-95 transition-all"
           >
-            <span>{isLogin ? 'Sign In to Workspace' : 'Create Account & Access'}</span>
+            <span>{isLogin ? 'Sign In to Account' : 'Create Account'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
+        {/* Demo Admin Quick Access */}
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 text-center space-y-2">
+          <p className="text-[11px] text-slate-400 font-medium">Quick Access Buttons:</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => {
+                switchRole('normal');
+                loginUser('alex.user@example.com');
+              }}
+              className="py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              Demo Normal User
+            </button>
+
+            <button
+              onClick={() => {
+                switchRole('admin');
+                loginUser('sablu.hasan.dev@gmail.com');
+              }}
+              className="py-2 px-3 rounded-xl bg-indigo-600 text-white text-xs font-extrabold shadow hover:bg-indigo-700 flex items-center justify-center gap-1"
+            >
+              <Shield className="w-3 h-3" /> Sablu (Admin)
+            </button>
+          </div>
+        </div>
+
         {/* Demo Google Button */}
-        <div className="pt-2 text-center">
+        <div className="pt-1 text-center">
           <button
             onClick={() => {
-              switchRole('premium');
-              loginUser('sablu.hasan.google@gmail.com');
+              switchRole('normal');
+              loginUser('google.user@gmail.com');
             }}
             className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center gap-2 transition-colors"
           >
