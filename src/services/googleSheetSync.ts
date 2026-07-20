@@ -3,8 +3,7 @@
 
 export const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1rjbnHvr0Jje93dQOy0GnyPBSCLZc3gNfCYSed2JT5wU/edit?gid=0#gid=0';
 
-// Configurable Webhook Endpoint (Google Apps Script / SheetDB / AppSheet)
-let webhookUrl = localStorage.getItem('moneyflow_google_sheet_webhook') || '';
+let webhookUrl = import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK || localStorage.getItem('moneyflow_google_sheet_webhook') || '';
 
 export const setGoogleSheetWebhook = (url: string) => {
   webhookUrl = url;
@@ -26,7 +25,7 @@ export async function syncTransactionToGoogleSheet(data: {
 }) {
   const targetUrl = webhookUrl;
   if (!targetUrl) {
-    console.log('Google Sheet Webhook not set yet. Data logged locally:', data);
+    console.log('Google Sheet Webhook URL not set yet. Data logged locally:', data);
     return false;
   }
 
@@ -39,10 +38,10 @@ export async function syncTransactionToGoogleSheet(data: {
       },
       body: JSON.stringify(data)
     });
-    console.log('Successfully synced transaction to Google Sheet!');
+    console.log('Successfully synced data live to Google Sheet database!');
     return true;
   } catch (err) {
-    console.error('Error syncing to Google Sheet:', err);
+    console.error('Error syncing data live to Google Sheet:', err);
     return false;
   }
 }
