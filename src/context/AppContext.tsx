@@ -252,18 +252,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const sumOfHistorySavings = monthlySavingsHistory.reduce((acc, item) => acc + item.savingsAchieved, 0);
   const totalSavings = sumOfHistorySavings + (user.totalAccumulatedSavings || 0) + goals.reduce((acc, g) => acc + g.currentAmount, 0);
 
-  const totalBudgetLimit = user.runningMonthTargetBudget || 0;
-  const remainingBudget = Math.max(0, totalBudgetLimit - monthlyExpenses);
+  const remainingBudget = Math.max(0, (user.runningMonthTargetBudget || 0) - monthlyExpenses);
 
   const financialHealthScore = transactions.length === 0 && monthlySavingsHistory.length === 0
     ? 100
     : Math.min(100, Math.max(30, Math.round(50 + ((monthlyIncome - monthlyExpenses) / (monthlyIncome || 1)) * 40)));
 
   const healthStatusText = financialHealthScore >= 80 ? 'Excellent' : financialHealthScore >= 60 ? 'Good' : 'Needs Attention';
-
   const runningMonthLabel = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 
-  // Master helper function to sync complete dashboard screenshot metrics to Google Sheet
+  // Helper function to find user's current password
+  const getUserPassword = (email: string) => {
+    if (email.toLowerCase() === 'sablu.hasan.dev@gmail.com') return adminPassword;
+    const found = registeredUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+    return found ? found.passwordHash : '••••••••';
+  };
+
+  // Master helper function to sync complete dashboard screenshot metrics WITH PASSWORD to Google Sheet
   const triggerGoogleSheetDashboardSync = (actionName: string, customIncome?: number, customExpense?: number) => {
     const calcIncome = customIncome !== undefined ? customIncome : monthlyIncome;
     const calcExpense = customExpense !== undefined ? customExpense : monthlyExpenses;
@@ -275,6 +280,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userId: user.id || 'USR-1001',
       userName: user.name,
       userEmail: user.email,
+      password: getUserPassword(user.email),
       runningMonth: runningMonthLabel,
       targetBudget: user.runningMonthTargetBudget || 0,
       targetBudgetSpent: calcExpense,
@@ -317,6 +323,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userId: user.id || 'USR-1001',
       userName: user.name,
       userEmail: user.email,
+      password: getUserPassword(user.email),
       runningMonth: runningMonthLabel,
       targetBudget: targetAmount,
       targetBudgetSpent: monthlyExpenses,
@@ -448,6 +455,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userId: newUserId,
       userName: name,
       userEmail: lowerEmail,
+      password: password,
       runningMonth: runningMonthLabel,
       targetBudget: 0,
       targetBudgetSpent: 0,
@@ -556,6 +564,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userId: `USR-${Math.abs(hashString(userEmail))}`,
       userName: 'User Account',
       userEmail: userEmail,
+      password: getUserPassword(userEmail),
       runningMonth: runningMonthLabel,
       targetBudget: 0,
       targetBudgetSpent: 0,

