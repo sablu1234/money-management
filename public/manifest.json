@@ -1,0 +1,16 @@
+{
+  "short_name": "MoneyFlow",
+  "name": "MoneyFlow - Personal Finance Manager by Sablu Hasan",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#0F172A",
+  "background_color": "#0F172A",
+  "orientation": "portrait"
+}
