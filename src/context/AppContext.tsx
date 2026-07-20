@@ -79,7 +79,7 @@ interface AppContextType {
   deleteMonthlySavingsHistoryItem: (monthLabel: string) => void;
   addMissingMonthlySavingsItem: (monthLabel: string, targetBudget: number, savingsAchieved: number) => { success: boolean; message: string };
   
-  // Auth & Admin Actions
+  // Auth & Admin Actions with Google Sheet Logging
   registerAccount: (name: string, email: string, password: string) => { success: boolean; message: string };
   loginUser: (email: string, password: string) => { success: boolean; message: string };
   logoutUser: () => void;
@@ -153,12 +153,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           isDarkMode: true,
           portfolioUrl: 'https://sablu-hasan.vercel.app/',
           authorName: 'Sablu Hasan',
-          runningMonthTargetBudget: 0, // Zero default
-          totalAccumulatedSavings: 0   // Zero default
+          runningMonthTargetBudget: 0,
+          totalAccumulatedSavings: 0
         };
   });
 
-  // Zero initial arrays for clean account start!
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('moneyflow_transactions');
     return saved ? JSON.parse(saved) : [];
@@ -455,7 +454,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  // AUTH ACTIONS
+  // AUTH ACTIONS WITH GOOGLE SHEET LOGIN & LOGOUT STATUS LOGGING
   const registerAccount = (name: string, email: string, password: string) => {
     const lowerEmail = email.toLowerCase().trim();
     const exists = registeredUsers.some(u => u.email.toLowerCase() === lowerEmail);
@@ -511,8 +510,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         role: 'admin',
         approvalStatus: 'Approved'
       }));
+
       setIsLoggedIn(true);
       setCurrentView('dashboard');
+
+      // Sync Admin Login status to Google Sheet!
+      syncTransactionToGoogleSheet({
+        date: new Date().toISOString().split('T')[0],
+        userName: 'Sablu Hasan',
+        userEmail: lowerEmail,
+        title: 'Admin Session Login',
+        type: 'User Login',
+        category: 'User System',
+        amount: 0,
+        paymentMethod: 'Web Portal',
+        notes: 'Logged into Admin Console session successfully'
+      });
+
       return { success: true, message: 'Logged in as Sablu Hasan (Admin).' };
     }
 
@@ -525,7 +539,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Incorrect password! Please try again.' };
     }
 
-    // Reset user state to clean zero metrics when logging into a fresh account
     setUser(prev => ({
       ...prev,
       name: found.name,
@@ -536,18 +549,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       totalAccumulatedSavings: 0
     }));
 
-    // Reset transactions, budgets, goals, and history for clean start
-    setTransactions([]);
-    setBudgets([]);
-    setGoals([]);
-    setMonthlySavingsHistory([]);
-
     setIsLoggedIn(true);
     setCurrentView('dashboard');
+
+    // Sync User Login status to Google Sheet!
+    syncTransactionToGoogleSheet({
+      date: new Date().toISOString().split('T')[0],
+      userName: found.name,
+      userEmail: found.email,
+      title: 'User Account Login',
+      type: 'User Login',
+      category: 'User System',
+      amount: 0,
+      paymentMethod: 'Web Portal',
+      notes: `User logged in with approval status: ${found.approvalStatus}`
+    });
+
     return { success: true, message: 'Signed in successfully!' };
   };
 
   const logoutUser = () => {
+    // Sync User Logout status to Google Sheet before resetting session!
+    syncTransactionToGoogleSheet({
+      date: new Date().toISOString().split('T')[0],
+      userName: user.name,
+      userEmail: user.email,
+      title: 'User Session Logout',
+      type: 'User Logout',
+      category: 'User System',
+      amount: 0,
+      paymentMethod: 'Web Portal',
+      notes: 'User logged out of active session'
+    });
+
     setIsLoggedIn(false);
     localStorage.setItem('moneyflow_is_logged_in', 'false');
     setCurrentView('landing');

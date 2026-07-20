@@ -14,6 +14,7 @@ import {
   ExternalLink,
   Home,
   LogIn,
+  LogOut,
   X
 } from 'lucide-react';
 
@@ -39,7 +40,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
 ];
 
 export const Sidebar: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
-  const { currentView, setCurrentView, user, isLoggedIn } = useApp();
+  const { currentView, setCurrentView, user, isLoggedIn, logoutUser } = useApp();
 
   return (
     <>
@@ -56,7 +57,7 @@ export const Sidebar: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ is
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        <div className="space-y-5">
+        <div className="space-y-5 overflow-y-auto">
           
           {/* Mobile Header with Close Button */}
           <div className="flex items-center justify-between md:hidden pb-2 border-b border-slate-100 dark:border-slate-800">
@@ -128,20 +129,32 @@ export const Sidebar: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ is
           </nav>
         </div>
 
-        {/* Footer Portfolio Link Card */}
-        <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+        {/* Footer Actions: Logout Button & Author Portfolio Link */}
+        <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
+          {isLoggedIn && (
+            <button
+              onClick={() => {
+                logoutUser();
+                onClose();
+              }}
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-xs font-extrabold transition-all border border-rose-500/20"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign Out Session</span>
+            </button>
+          )}
+
           <a
             href={user.portfolioUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="group block p-3 rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition-all text-center"
+            className="group block p-2.5 rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition-all text-center"
           >
             <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Project Author</p>
             <p className="text-xs font-extrabold text-emerald-400 flex items-center justify-center gap-1 mt-0.5">
               {user.authorName}
               <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
             </p>
-            <p className="text-[10px] text-slate-400 mt-1 truncate">sablu-hasan.vercel.app</p>
           </a>
         </div>
       </aside>
