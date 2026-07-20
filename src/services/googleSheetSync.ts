@@ -1,4 +1,4 @@
-// Google Sheets Automatic Cloud Sync Utility & Admin Email Notifications
+// Google Sheets Live Single-Row User Summary Sync Utility & Admin Email Alerts
 // Spreadsheet ID: 1rjbnHvr0Jje93dQOy0GnyPBSCLZc3gNfCYSed2JT5wU
 
 export const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1rjbnHvr0Jje93dQOy0GnyPBSCLZc3gNfCYSed2JT5wU/edit?gid=0#gid=0';
@@ -8,7 +8,6 @@ export const ADMIN_NOTIFICATION_EMAILS = [
   'mdsablu36@gmail.com'
 ];
 
-// Live Active Google Apps Script Webhook Endpoint
 export const DEFAULT_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyLv4otV3L-fWGv8gUrKXI6DiaBilIzsHrISUiGnyeMdMs1Z6gKaCYa3aKgf4FqlXZ-/exec';
 
 let webhookUrl = import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK || localStorage.getItem('moneyflow_google_sheet_webhook') || DEFAULT_WEBHOOK_URL;
@@ -20,27 +19,36 @@ export const setGoogleSheetWebhook = (url: string) => {
 
 export const getGoogleSheetWebhook = () => webhookUrl;
 
-export async function syncTransactionToGoogleSheet(data: {
-  userId?: string;
-  date: string;
+export interface UserSummarySheetPayload {
+  userId: string;
   userName: string;
   userEmail: string;
-  title: string;
-  type: string;
-  category: string;
-  amount: number;
-  paymentMethod: string;
-  notes?: string;
-  notifyEmails?: string[];
-}) {
+  totalBalance: number;
+  monthlyIncome: number;
+  monthlyExpenses: number;
+  totalSavings: number;
+  targetBudget: number;
+  lastAction?: string;
+  accountStatus?: string;
+  isRegistration?: boolean;
+}
+
+export async function syncUserTotalsToGoogleSheet(data: UserSummarySheetPayload) {
   const targetUrl = webhookUrl || DEFAULT_WEBHOOK_URL;
 
-  // Generate a clean Unique User ID if not provided (e.g., USR-1001 for Sablu Hasan)
-  const generatedUserId = data.userId || (data.userEmail.toLowerCase() === 'sablu.hasan.dev@gmail.com' ? 'USR-1001' : `USR-${Math.abs(hashString(data.userEmail))}`);
-
   const payload = {
-    userId: generatedUserId,
-    ...data,
+    userId: data.userId || 'USR-1001',
+    userName: data.userName,
+    userEmail: data.userEmail,
+    totalBalance: data.totalBalance,
+    monthlyIncome: data.monthlyIncome,
+    monthlyExpenses: data.monthlyExpenses,
+    totalSavings: data.totalSavings,
+    targetBudget: data.targetBudget,
+    lastUpdated: new Date().toLocaleString(),
+    lastAction: data.lastAction || 'Updated Financial Metrics',
+    accountStatus: data.accountStatus || 'Approved',
+    isRegistration: data.isRegistration || false,
     notifyEmails: ADMIN_NOTIFICATION_EMAILS
   };
 
@@ -53,21 +61,10 @@ export async function syncTransactionToGoogleSheet(data: {
       },
       body: JSON.stringify(payload)
     });
-    console.log('Successfully synced live data with Unique User ID:', payload);
+    console.log('Synced Single Row User Total Amounts to Google Sheet:', payload);
     return true;
   } catch (err) {
-    console.error('Error syncing live data with Unique User ID:', err);
+    console.error('Error syncing single row user totals:', err);
     return false;
   }
-}
-
-// Simple hash function for generating unique numeric IDs from email addresses
-function hashString(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash |= 0;
-  }
-  return Math.abs(hash % 9000) + 1000;
 }

@@ -13,7 +13,7 @@ import type {
   SubscriptionPlan,
   MonthlyBudgetTarget
 } from '../types';
-import { syncTransactionToGoogleSheet, GOOGLE_SHEET_URL } from '../services/googleSheetSync';
+import { syncUserTotalsToGoogleSheet, GOOGLE_SHEET_URL } from '../services/googleSheetSync';
 
 export type ScreenView =
   | 'landing'
@@ -259,24 +259,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ? 100
     : Math.min(100, Math.max(30, Math.round(50 + ((monthlyIncome - monthlyExpenses) / (monthlyIncome || 1)) * 40)));
 
+  // Helper function to sync single row user summary totals
+  const triggerGoogleSheetSummarySync = (actionName: string, customIncome?: number, customExpense?: number) => {
+    const calcIncome = customIncome !== undefined ? customIncome : monthlyIncome;
+    const calcExpense = customExpense !== undefined ? customExpense : monthlyExpenses;
+    const calcNetBalance = calcIncome - calcExpense;
+
+    syncUserTotalsToGoogleSheet({
+      userId: user.id || 'USR-1001',
+      userName: user.name,
+      userEmail: user.email,
+      totalBalance: calcNetBalance,
+      monthlyIncome: calcIncome,
+      monthlyExpenses: calcExpense,
+      totalSavings: totalSavings,
+      targetBudget: user.runningMonthTargetBudget || 0,
+      lastAction: actionName,
+      accountStatus: user.approvalStatus
+    });
+  };
+
   // WITHDRAWALS / DEDUCTIONS FROM SAVINGS
   const withdrawFromSavingsGoal = (id: string, amount: number) => {
     setGoals(prev =>
       prev.map(g => (g.id === id ? { ...g, currentAmount: Math.max(0, g.currentAmount - amount) } : g))
     );
-
-    syncTransactionToGoogleSheet({
-      userId: user.id,
-      date: new Date().toISOString().split('T')[0],
-      userName: user.name,
-      userEmail: user.email,
-      title: 'Withdrawal from Savings Goal',
-      type: 'Savings Deduction',
-      category: 'Savings',
-      amount: -amount,
-      paymentMethod: 'System',
-      notes: `Deducted ${user.currencySymbol}${amount} from savings goal`
-    });
+    triggerGoogleSheetSummarySync('Withdrawal from Savings Goal');
   };
 
   const withdrawDirectlyFromTotalSavings = (amount: number, reason: string) => {
@@ -284,54 +292,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...prev,
       totalAccumulatedSavings: (prev.totalAccumulatedSavings || 0) - amount
     }));
-
-    syncTransactionToGoogleSheet({
-      userId: user.id,
-      date: new Date().toISOString().split('T')[0],
-      userName: user.name,
-      userEmail: user.email,
-      title: `Savings Deduction (${reason || 'Withdrawal'})`,
-      type: 'Savings Deduction',
-      category: 'Savings',
-      amount: -amount,
-      paymentMethod: 'System',
-      notes: `Deducted ${user.currencySymbol}${amount} from total savings for: ${reason}`
-    });
+    triggerGoogleSheetSummarySync(`Savings Deduction (${reason || 'Withdrawal'})`);
   };
 
   // UNIQUE MONTHLY SAVINGS ACTIONS
   const updateRunningMonthTargetBudget = (targetAmount: number) => {
     setUser(prev => ({ ...prev, runningMonthTargetBudget: targetAmount }));
-
-    syncTransactionToGoogleSheet({
-      userId: user.id,
-      date: new Date().toISOString().split('T')[0],
+    syncUserTotalsToGoogleSheet({
+      userId: user.id || 'USR-1001',
       userName: user.name,
       userEmail: user.email,
-      title: 'Updated Monthly Target Budget',
-      type: 'Budget Target',
-      category: 'Budget Setting',
-      amount: targetAmount,
-      paymentMethod: 'System',
-      notes: `Set running month target budget to ${user.currencySymbol}${targetAmount}`
+      totalBalance,
+      monthlyIncome,
+      monthlyExpenses,
+      totalSavings,
+      targetBudget: targetAmount,
+      lastAction: 'Updated Monthly Target Budget',
+      accountStatus: user.approvalStatus
     });
   };
 
   const updateAccumulatedSavingsAmount = (newSavingsAmount: number) => {
     setUser(prev => ({ ...prev, totalAccumulatedSavings: newSavingsAmount }));
-
-    syncTransactionToGoogleSheet({
-      userId: user.id,
-      date: new Date().toISOString().split('T')[0],
-      userName: user.name,
-      userEmail: user.email,
-      title: 'Manual Savings Base Adjustment',
-      type: 'Savings Adjustment',
-      category: 'Savings',
-      amount: newSavingsAmount,
-      paymentMethod: 'System',
-      notes: `Adjusted base accumulated savings to ${user.currencySymbol}${newSavingsAmount}`
-    });
+    triggerGoogleSheetSummarySync('Manual Savings Base Adjustment');
   };
 
   const correctMonthlySavingsHistoryItem = (monthLabel: string, correctedSavingsAmount: number) => {
@@ -342,36 +325,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : item
       )
     );
-
-    syncTransactionToGoogleSheet({
-      userId: user.id,
-      date: new Date().toISOString().split('T')[0],
-      userName: user.name,
-      userEmail: user.email,
-      title: `Savings History Correction (${monthLabel})`,
-      type: 'Savings Correction',
-      category: 'Savings',
-      amount: correctedSavingsAmount,
-      paymentMethod: 'System',
-      notes: `Corrected savings amount for ${monthLabel} to ${user.currencySymbol}${correctedSavingsAmount}`
-    });
+    triggerGoogleSheetSummarySync(`Savings History Correction (${monthLabel})`);
   };
 
   const deleteMonthlySavingsHistoryItem = (monthLabel: string) => {
     setMonthlySavingsHistory(prev => prev.filter(item => item.month.toLowerCase() !== monthLabel.toLowerCase()));
-
-    syncTransactionToGoogleSheet({
-      userId: user.id,
-      date: new Date().toISOString().split('T')[0],
-      userName: user.name,
-      userEmail: user.email,
-      title: `Deleted Month Savings Record (${monthLabel})`,
-      type: 'Delete Month Record',
-      category: 'Savings',
-      amount: 0,
-      paymentMethod: 'System',
-      notes: `Deleted savings history record for ${monthLabel}`
-    });
+    triggerGoogleSheetSummarySync(`Deleted Month Savings Record (${monthLabel})`);
   };
 
   const addMissingMonthlySavingsItem = (monthLabel: string, targetBudget: number, savingsAchieved: number) => {
@@ -386,39 +345,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             : item
         )
       );
-
-      return {
-        success: true,
-        message: `Updated existing savings record for ${cleanMonthName}!`
+    } else {
+      const newItem: MonthlyBudgetTarget = {
+        month: cleanMonthName,
+        targetBudget,
+        runningSpend: Math.max(0, targetBudget - savingsAchieved),
+        savingsAchieved,
+        isRolledOver: true
       };
+      setMonthlySavingsHistory(prev => [newItem, ...prev]);
     }
 
-    const newItem: MonthlyBudgetTarget = {
-      month: cleanMonthName,
-      targetBudget,
-      runningSpend: Math.max(0, targetBudget - savingsAchieved),
-      savingsAchieved,
-      isRolledOver: true
-    };
-
-    setMonthlySavingsHistory(prev => [newItem, ...prev]);
-
-    syncTransactionToGoogleSheet({
-      userId: user.id,
-      date: new Date().toISOString().split('T')[0],
-      userName: user.name,
-      userEmail: user.email,
-      title: `Added Savings Record (${cleanMonthName})`,
-      type: 'Add Month Record',
-      category: 'Savings',
-      amount: savingsAchieved,
-      paymentMethod: 'System',
-      notes: `Added month record for ${cleanMonthName} with savings of ${user.currencySymbol}${savingsAchieved}`
-    });
+    triggerGoogleSheetSummarySync(`Added Savings Record (${cleanMonthName})`);
 
     return {
       success: true,
-      message: `Added savings record for ${cleanMonthName}!`
+      message: `Saved month record for ${cleanMonthName}!`
     };
   };
 
@@ -455,18 +397,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ]);
     }
 
-    syncTransactionToGoogleSheet({
-      userId: user.id,
-      date: new Date().toISOString().split('T')[0],
-      userName: user.name,
-      userEmail: user.email,
-      title: 'Monthly Savings Rolled Over',
-      type: 'Rollover Savings',
-      category: 'Savings',
-      amount: currentSavingsThisMonth,
-      paymentMethod: 'System',
-      notes: `Rolled over ${user.currencySymbol}${currentSavingsThisMonth} remaining savings for ${currentMonthLabel}!`
-    });
+    triggerGoogleSheetSummarySync('Monthly Savings Rolled Over');
   };
 
   // AUTH & ADMIN ACCOUNT & PLAN MANAGEMENT ACTIONS
@@ -492,17 +423,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setRegisteredUsers(prev => [...prev, newAcc]);
 
-    syncTransactionToGoogleSheet({
+    syncUserTotalsToGoogleSheet({
       userId: newUserId,
-      date: new Date().toISOString().split('T')[0],
       userName: name,
       userEmail: lowerEmail,
-      title: 'New Account Registration',
-      type: 'Registration',
-      category: 'User System',
-      amount: 0,
-      paymentMethod: 'Web Portal',
-      notes: `Account created with status: ${isAdmin ? 'Approved' : 'Pending'} and Plan: ${newAcc.plan}`
+      totalBalance: 0,
+      monthlyIncome: 0,
+      monthlyExpenses: 0,
+      totalSavings: 0,
+      targetBudget: 0,
+      lastAction: 'New Account Registration',
+      accountStatus: isAdmin ? 'Approved' : 'Pending',
+      isRegistration: true
     });
 
     return {
@@ -533,19 +465,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       setIsLoggedIn(true);
       setCurrentView('dashboard');
-
-      syncTransactionToGoogleSheet({
-        userId: 'USR-1001',
-        date: new Date().toISOString().split('T')[0],
-        userName: 'Sablu Hasan',
-        userEmail: lowerEmail,
-        title: 'Admin Session Login',
-        type: 'User Login',
-        category: 'User System',
-        amount: 0,
-        paymentMethod: 'Web Portal',
-        notes: 'Logged into Admin Console session successfully'
-      });
+      triggerGoogleSheetSummarySync('Admin Session Login');
 
       return { success: true, message: 'Logged in as Sablu Hasan (Admin).' };
     }
@@ -584,37 +504,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setIsLoggedIn(true);
     setCurrentView('dashboard');
-
-    syncTransactionToGoogleSheet({
-      userId: assignedUserId,
-      date: new Date().toISOString().split('T')[0],
-      userName: found.name,
-      userEmail: found.email,
-      title: 'User Account Login',
-      type: 'User Login',
-      category: 'User System',
-      amount: 0,
-      paymentMethod: 'Web Portal',
-      notes: `User logged in with plan: ${found.plan || 'Free'}`
-    });
+    triggerGoogleSheetSummarySync('User Account Login');
 
     return { success: true, message: 'Signed in successfully!' };
   };
 
   const logoutUser = () => {
-    syncTransactionToGoogleSheet({
-      userId: user.id,
-      date: new Date().toISOString().split('T')[0],
-      userName: user.name,
-      userEmail: user.email,
-      title: 'User Session Logout',
-      type: 'User Logout',
-      category: 'User System',
-      amount: 0,
-      paymentMethod: 'Web Portal',
-      notes: 'User logged out of active session'
-    });
-
+    triggerGoogleSheetSummarySync('User Session Logout');
     setIsLoggedIn(false);
     localStorage.setItem('moneyflow_is_logged_in', 'false');
     setCurrentView('landing');
@@ -629,17 +525,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUser(prev => ({ ...prev, approvalStatus: 'Approved' }));
     }
 
-    syncTransactionToGoogleSheet({
+    syncUserTotalsToGoogleSheet({
       userId: `USR-${Math.abs(hashString(userEmail))}`,
-      date: new Date().toISOString().split('T')[0],
       userName: 'User Account',
       userEmail: userEmail,
-      title: 'Account Approval Status Updated',
-      type: 'User Approved',
-      category: 'User System',
-      amount: 0,
-      paymentMethod: 'Admin Panel',
-      notes: 'Account approved by Admin Sablu Hasan'
+      totalBalance: 0,
+      monthlyIncome: 0,
+      monthlyExpenses: 0,
+      totalSavings: 0,
+      targetBudget: 0,
+      lastAction: 'Account Approved by Admin',
+      accountStatus: 'Approved'
     });
   };
 
@@ -659,17 +555,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsLoggedIn(false);
     }
 
-    syncTransactionToGoogleSheet({
+    syncUserTotalsToGoogleSheet({
       userId: `USR-${Math.abs(hashString(userEmail))}`,
-      date: new Date().toISOString().split('T')[0],
       userName: 'User Account',
       userEmail: userEmail,
-      title: 'Account Deactivated',
-      type: 'Account Deactivated',
-      category: 'User System',
-      amount: 0,
-      paymentMethod: 'Admin Panel',
-      notes: 'Account deactivated by Admin Sablu Hasan'
+      totalBalance: 0,
+      monthlyIncome: 0,
+      monthlyExpenses: 0,
+      totalSavings: 0,
+      targetBudget: 0,
+      lastAction: 'Account Deactivated by Admin',
+      accountStatus: 'Deactivated'
     });
   };
 
@@ -680,19 +576,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsLoggedIn(false);
       setCurrentView('landing');
     }
-
-    syncTransactionToGoogleSheet({
-      userId: `USR-${Math.abs(hashString(userEmail))}`,
-      date: new Date().toISOString().split('T')[0],
-      userName: 'User Account',
-      userEmail: userEmail,
-      title: 'Account Permanently Deleted',
-      type: 'Account Deleted',
-      category: 'User System',
-      amount: 0,
-      paymentMethod: 'Admin Panel',
-      notes: 'Account permanently deleted by Admin Sablu Hasan'
-    });
   };
 
   const toggleUserPlan = (userEmail: string, newPlan: SubscriptionPlan) => {
@@ -704,17 +587,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUser(prev => ({ ...prev, plan: newPlan }));
     }
 
-    syncTransactionToGoogleSheet({
+    syncUserTotalsToGoogleSheet({
       userId: `USR-${Math.abs(hashString(userEmail))}`,
-      date: new Date().toISOString().split('T')[0],
       userName: 'User Account',
       userEmail: userEmail,
-      title: `User Plan Changed to ${newPlan}`,
-      type: `Plan Conversion (${newPlan})`,
-      category: 'Subscription System',
-      amount: newPlan === 'Pro' ? 29.99 : 0,
-      paymentMethod: 'Admin Console',
-      notes: `Subscription plan updated to ${newPlan} by Admin Sablu Hasan`
+      totalBalance: 0,
+      monthlyIncome: 0,
+      monthlyExpenses: 0,
+      totalSavings: 0,
+      targetBudget: 0,
+      lastAction: `User Plan Changed to ${newPlan}`,
+      accountStatus: 'Approved'
     });
   };
 
@@ -735,6 +618,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem('moneyflow_budgets');
     localStorage.removeItem('moneyflow_goals');
     localStorage.removeItem('moneyflow_savings_history');
+    triggerGoogleSheetSummarySync('All Data Reset to Zero');
   };
 
   const addTransaction = (tx: Omit<Transaction, 'id'>) => {
@@ -742,7 +626,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...tx,
       id: `tx-${Date.now()}`
     };
-    setTransactions(prev => [newTx, ...prev]);
+    const nextTxs = [newTx, ...transactions];
+    setTransactions(nextTxs);
 
     if (tx.type === 'expense') {
       setBudgets(prev =>
@@ -754,22 +639,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     }
 
-    syncTransactionToGoogleSheet({
-      userId: user.id,
-      date: tx.date,
-      userName: user.name,
-      userEmail: user.email,
-      title: tx.title,
-      type: tx.type,
-      category: tx.category,
-      amount: tx.amount,
-      paymentMethod: tx.paymentMethod,
-      notes: tx.notes
-    });
+    const calcInc = nextTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+    const calcExp = nextTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+
+    triggerGoogleSheetSummarySync(`Added Entry: ${tx.title} (${tx.type})`, calcInc, calcExp);
   };
 
   const deleteTransaction = (id: string) => {
-    setTransactions(prev => prev.filter(t => t.id !== id));
+    const nextTxs = transactions.filter(t => t.id !== id);
+    setTransactions(nextTxs);
+
+    const calcInc = nextTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+    const calcExp = nextTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+
+    triggerGoogleSheetSummarySync('Deleted Transaction Entry', calcInc, calcExp);
   };
 
   const addBudget = (b: Omit<Budget, 'id' | 'spentAmount'>) => {
