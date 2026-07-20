@@ -511,7 +511,7 @@ export const DashboardScreen: React.FC = () => {
       )}
 
       {/* Top 5 Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
         
         {/* Total Balance */}
         <div className="glass-card p-4 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-2 relative overflow-hidden">

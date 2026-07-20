@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Search, Plus, Trash2, FileSpreadsheet, CheckCircle } from 'lucide-react';
+import { Search, Plus, Trash2, FileSpreadsheet, CheckCircle, TrendingUp, TrendingDown, Calendar, Tag, CreditCard } from 'lucide-react';
 import type { TransactionType } from '../../types';
 
 export const TransactionsScreen: React.FC = () => {
@@ -122,8 +122,74 @@ export const TransactionsScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* Transaction Table Card */}
-      <div className="glass-card rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
+      {/* MOBILE NATIVE CARD VIEW (Visible on Mobile Screens) */}
+      <div className="md:hidden space-y-3">
+        {sorted.length === 0 ? (
+          <div className="glass-card p-6 rounded-3xl text-center text-slate-400 text-xs">
+            No matching transactions found.
+          </div>
+        ) : (
+          sorted.map(tx => (
+            <div
+              key={tx.id}
+              className="glass-card p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2 shadow-sm"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={`p-2 rounded-xl text-white ${
+                      tx.type === 'income' ? 'bg-emerald-500' : 'bg-rose-500'
+                    }`}
+                  >
+                    {tx.type === 'income' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-extrabold text-slate-900 dark:text-white">{tx.title}</h4>
+                    <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1 mt-0.5">
+                      <Calendar className="w-3 h-3 text-blue-500" /> {tx.date}
+                    </span>
+                  </div>
+                </div>
+
+                <p
+                  className={`text-sm font-black ${
+                    tx.type === 'income' ? 'text-emerald-500' : 'text-slate-900 dark:text-white'
+                  }`}
+                >
+                  {tx.type === 'income' ? '+' : '-'}{user.currencySymbol}{tx.amount.toFixed(2)}
+                </p>
+              </div>
+
+              {tx.notes && (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/60 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
+                  {tx.notes}
+                </p>
+              )}
+
+              <div className="flex items-center justify-between pt-1 text-[10px] font-bold border-t border-slate-100 dark:border-slate-800/60">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                    <Tag className="w-3 h-3" /> {tx.category}
+                  </span>
+                  <span className="text-slate-400 flex items-center gap-1">
+                    <CreditCard className="w-3 h-3" /> {tx.paymentMethod}
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => deleteTransaction(tx.id)}
+                  className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* DESKTOP TABLE VIEW (Visible on Tablet/Desktop) */}
+      <div className="hidden md:block glass-card rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
