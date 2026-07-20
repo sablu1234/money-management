@@ -21,6 +21,7 @@ export const setGoogleSheetWebhook = (url: string) => {
 export const getGoogleSheetWebhook = () => webhookUrl;
 
 export async function syncTransactionToGoogleSheet(data: {
+  userId?: string;
   date: string;
   userName: string;
   userEmail: string;
@@ -34,7 +35,11 @@ export async function syncTransactionToGoogleSheet(data: {
 }) {
   const targetUrl = webhookUrl || DEFAULT_WEBHOOK_URL;
 
+  // Generate a clean Unique User ID if not provided (e.g., USR-1001 for Sablu Hasan)
+  const generatedUserId = data.userId || (data.userEmail.toLowerCase() === 'sablu.hasan.dev@gmail.com' ? 'USR-1001' : `USR-${Math.abs(hashString(data.userEmail))}`);
+
   const payload = {
+    userId: generatedUserId,
     ...data,
     notifyEmails: ADMIN_NOTIFICATION_EMAILS
   };
@@ -48,10 +53,21 @@ export async function syncTransactionToGoogleSheet(data: {
       },
       body: JSON.stringify(payload)
     });
-    console.log('Successfully synced live data & triggered email alerts!', payload);
+    console.log('Successfully synced live data with Unique User ID:', payload);
     return true;
   } catch (err) {
-    console.error('Error syncing live data & email notification:', err);
+    console.error('Error syncing live data with Unique User ID:', err);
     return false;
   }
+}
+
+// Simple hash function for generating unique numeric IDs from email addresses
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0;
+  }
+  return Math.abs(hash % 9000) + 1000;
 }

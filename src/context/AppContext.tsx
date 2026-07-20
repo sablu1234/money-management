@@ -141,7 +141,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved
       ? JSON.parse(saved)
       : {
-          id: 'user-sablu',
+          id: 'USR-1001',
           name: 'Sablu Hasan',
           email: 'sablu.hasan.dev@gmail.com',
           avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
@@ -222,7 +222,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [monthlySavingsHistory]);
 
   const adminUsers: AdminUser[] = registeredUsers.map((u, i) => ({
-    id: `u-${i}`,
+    id: `USR-${1000 + i}`,
     name: u.name,
     email: u.email,
     role: u.role,
@@ -259,6 +259,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     syncTransactionToGoogleSheet({
+      userId: user.id,
       date: new Date().toISOString().split('T')[0],
       userName: user.name,
       userEmail: user.email,
@@ -278,6 +279,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
 
     syncTransactionToGoogleSheet({
+      userId: user.id,
       date: new Date().toISOString().split('T')[0],
       userName: user.name,
       userEmail: user.email,
@@ -295,6 +297,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUser(prev => ({ ...prev, runningMonthTargetBudget: targetAmount }));
 
     syncTransactionToGoogleSheet({
+      userId: user.id,
       date: new Date().toISOString().split('T')[0],
       userName: user.name,
       userEmail: user.email,
@@ -311,6 +314,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUser(prev => ({ ...prev, totalAccumulatedSavings: newSavingsAmount }));
 
     syncTransactionToGoogleSheet({
+      userId: user.id,
       date: new Date().toISOString().split('T')[0],
       userName: user.name,
       userEmail: user.email,
@@ -333,6 +337,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     syncTransactionToGoogleSheet({
+      userId: user.id,
       date: new Date().toISOString().split('T')[0],
       userName: user.name,
       userEmail: user.email,
@@ -349,6 +354,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMonthlySavingsHistory(prev => prev.filter(item => item.month.toLowerCase() !== monthLabel.toLowerCase()));
 
     syncTransactionToGoogleSheet({
+      userId: user.id,
       date: new Date().toISOString().split('T')[0],
       userName: user.name,
       userEmail: user.email,
@@ -391,6 +397,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMonthlySavingsHistory(prev => [newItem, ...prev]);
 
     syncTransactionToGoogleSheet({
+      userId: user.id,
       date: new Date().toISOString().split('T')[0],
       userName: user.name,
       userEmail: user.email,
@@ -442,6 +449,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     syncTransactionToGoogleSheet({
+      userId: user.id,
       date: new Date().toISOString().split('T')[0],
       userName: user.name,
       userEmail: user.email,
@@ -463,6 +471,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const isAdmin = lowerEmail === 'sablu.hasan.dev@gmail.com';
+    const newUserId = isAdmin ? 'USR-1001' : `USR-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const newAcc: RegisteredUserAccount = {
       name,
@@ -476,6 +485,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRegisteredUsers(prev => [...prev, newAcc]);
 
     syncTransactionToGoogleSheet({
+      userId: newUserId,
       date: new Date().toISOString().split('T')[0],
       userName: name,
       userEmail: lowerEmail,
@@ -505,6 +515,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       setUser(prev => ({
         ...prev,
+        id: 'USR-1001',
         name: 'Sablu Hasan',
         email: lowerEmail,
         role: 'admin',
@@ -514,8 +525,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsLoggedIn(true);
       setCurrentView('dashboard');
 
-      // Sync Admin Login status to Google Sheet!
       syncTransactionToGoogleSheet({
+        userId: 'USR-1001',
         date: new Date().toISOString().split('T')[0],
         userName: 'Sablu Hasan',
         userEmail: lowerEmail,
@@ -539,8 +550,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Incorrect password! Please try again.' };
     }
 
+    const assignedUserId = `USR-${Math.abs(hashString(found.email))}`;
+
     setUser(prev => ({
       ...prev,
+      id: assignedUserId,
       name: found.name,
       email: found.email,
       role: found.role,
@@ -549,11 +563,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       totalAccumulatedSavings: 0
     }));
 
+    setTransactions([]);
+    setBudgets([]);
+    setGoals([]);
+    setMonthlySavingsHistory([]);
+
     setIsLoggedIn(true);
     setCurrentView('dashboard');
 
-    // Sync User Login status to Google Sheet!
     syncTransactionToGoogleSheet({
+      userId: assignedUserId,
       date: new Date().toISOString().split('T')[0],
       userName: found.name,
       userEmail: found.email,
@@ -569,8 +588,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logoutUser = () => {
-    // Sync User Logout status to Google Sheet before resetting session!
     syncTransactionToGoogleSheet({
+      userId: user.id,
       date: new Date().toISOString().split('T')[0],
       userName: user.name,
       userEmail: user.email,
@@ -640,6 +659,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     syncTransactionToGoogleSheet({
+      userId: user.id,
       date: tx.date,
       userName: user.name,
       userEmail: user.email,
@@ -764,6 +784,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     </AppContext.Provider>
   );
 };
+
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0;
+  }
+  return Math.abs(hash % 9000) + 1000;
+}
 
 export const useApp = () => {
   const context = useContext(AppContext);
