@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Mail, Lock, User as UserIcon, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, ArrowRight, CheckCircle2, AlertCircle, LogIn } from 'lucide-react';
 
 export const AuthScreen: React.FC = () => {
   const { loginUser, registerAccount } = useApp();
@@ -94,14 +94,28 @@ export const AuthScreen: React.FC = () => {
 
         {/* Alerts */}
         {errorMsg && (
-          <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-bold flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMsg}</span>
+          <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-500 text-xs font-bold space-y-2">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+            {errorMsg.toLowerCase().includes('already exists') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLogin(true);
+                  setErrorMsg('');
+                }}
+                className="w-full py-1.5 px-2 rounded-xl bg-rose-500 text-white text-[11px] font-extrabold flex items-center justify-center gap-1 shadow"
+              >
+                <LogIn className="w-3.5 h-3.5" /> Switch to Sign In Tab Now
+              </button>
+            )}
           </div>
         )}
 
         {successMsg && (
-          <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold flex items-center gap-2">
+          <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             <span>{successMsg}</span>
           </div>
@@ -171,7 +185,7 @@ export const AuthScreen: React.FC = () => {
         </form>
 
         <div className="pt-2 text-center text-[11px] text-slate-400 font-medium">
-          New users are set to <span className="text-amber-500 font-bold">Pending Approval</span> status until approved by Sablu Hasan.
+          New accounts require <span className="text-amber-500 font-bold">Admin Approval</span> by Sablu Hasan before accessing full modules.
         </div>
 
       </div>
