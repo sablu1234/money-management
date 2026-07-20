@@ -69,7 +69,7 @@ interface AppContextType {
   clearAllNotifications: () => void;
   addAIQuery: (query: string, response: string) => void;
   
-  // Monthly Budget & Unique Savings History Actions
+  // Dynamic Monthly Budget & Unique Savings History Actions
   updateRunningMonthTargetBudget: (targetAmount: number) => void;
   updateAccumulatedSavingsAmount: (newSavingsAmount: number) => void;
   rolloverRemainingSavingsToNextMonth: () => void;
@@ -175,10 +175,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('moneyflow_savings_history');
     return saved
       ? JSON.parse(saved)
-      : [
-          { month: 'June 2026', targetBudget: 1200, runningSpend: 850, savingsAchieved: 350, isRolledOver: true },
-          { month: 'May 2026', targetBudget: 1000, runningSpend: 720, savingsAchieved: 280, isRolledOver: true }
-        ];
+      : [];
   });
 
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
@@ -243,15 +240,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     .reduce((acc, t) => acc + t.amount, 0);
 
   const totalBalance = monthlyIncome - monthlyExpenses;
-  const totalSavings = (user.totalAccumulatedSavings || 0) + goals.reduce((acc, g) => acc + g.currentAmount, 0);
+
+  // Real-time Dynamic Accumulated Savings Calculation: Sum of all monthly savings achieved + goals deposits + base manual override
+  const sumOfHistorySavings = monthlySavingsHistory.reduce((acc, item) => acc + item.savingsAchieved, 0);
+  const totalSavings = sumOfHistorySavings + (user.totalAccumulatedSavings || 0) + goals.reduce((acc, g) => acc + g.currentAmount, 0);
+
   const totalBudgetLimit = user.runningMonthTargetBudget || 1500;
   const remainingBudget = Math.max(0, totalBudgetLimit - monthlyExpenses);
 
-  const financialHealthScore = transactions.length === 0
+  const financialHealthScore = transactions.length === 0 && monthlySavingsHistory.length === 0
     ? 100
     : Math.min(100, Math.max(30, Math.round(50 + ((monthlyIncome - monthlyExpenses) / (monthlyIncome || 1)) * 40)));
 
-  // UNIQUE MONTHLY SAVINGS ACTIONS (PREVENTS DUPLICATE MONTH ENTRIES!)
+  // UNIQUE MONTHLY SAVINGS ACTIONS (PREVENTS DUPLICATE MONTH ENTRIES & DYNAMICALLY UPDATES ACCUMULATED SAVINGS!)
   const updateRunningMonthTargetBudget = (targetAmount: number) => {
     setUser(prev => ({ ...prev, runningMonthTargetBudget: targetAmount }));
 
@@ -275,12 +276,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       date: new Date().toISOString().split('T')[0],
       userName: user.name,
       userEmail: user.email,
-      title: 'Manual Savings Amount Adjustment',
+      title: 'Manual Savings Base Adjustment',
       type: 'Savings Adjustment',
       category: 'Savings',
       amount: newSavingsAmount,
       paymentMethod: 'System',
-      notes: `Adjusted total accumulated savings to ${user.currencySymbol}${newSavingsAmount}`
+      notes: `Adjusted base accumulated savings to ${user.currencySymbol}${newSavingsAmount}`
     });
   };
 
@@ -327,7 +328,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const existingIndex = monthlySavingsHistory.findIndex(m => m.month.toLowerCase() === cleanMonthName.toLowerCase());
 
     if (existingIndex !== -1) {
-      // Update existing month record instead of adding a duplicate!
       setMonthlySavingsHistory(prev =>
         prev.map((item, idx) =>
           idx === existingIndex
@@ -352,11 +352,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setMonthlySavingsHistory(prev => [newItem, ...prev]);
 
-    setUser(prev => ({
-      ...prev,
-      totalAccumulatedSavings: (prev.totalAccumulatedSavings || 0) + savingsAchieved
-    }));
-
     syncTransactionToGoogleSheet({
       date: new Date().toISOString().split('T')[0],
       userName: user.name,
@@ -377,16 +372,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const rolloverRemainingSavingsToNextMonth = () => {
     const currentSavingsThisMonth = Math.max(0, monthlyIncome - monthlyExpenses);
-    const updatedTotalSavings = (user.totalAccumulatedSavings || 0) + currentSavingsThisMonth;
     const currentMonthLabel = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 
-    setUser(prev => ({ ...prev, totalAccumulatedSavings: updatedTotalSavings }));
-
-    // Check if current month already exists in history
     const existingIndex = monthlySavingsHistory.findIndex(m => m.month.toLowerCase() === currentMonthLabel.toLowerCase());
 
     if (existingIndex !== -1) {
-      // Update existing record for current month instead of creating duplicate!
       setMonthlySavingsHistory(prev =>
         prev.map((item, idx) =>
           idx === existingIndex
@@ -542,10 +532,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTransactions([]);
     setBudgets([]);
     setGoals([]);
+    setMonthlySavingsHistory([]);
     setUser(prev => ({ ...prev, totalAccumulatedSavings: 0 }));
     localStorage.removeItem('moneyflow_transactions');
     localStorage.removeItem('moneyflow_budgets');
     localStorage.removeItem('moneyflow_goals');
+    localStorage.removeItem('moneyflow_savings_history');
   };
 
   const addTransaction = (tx: Omit<Transaction, 'id'>) => {
