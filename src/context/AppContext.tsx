@@ -74,6 +74,8 @@ interface AppContextType {
   updateAccumulatedSavingsAmount: (newSavingsAmount: number) => void;
   rolloverRemainingSavingsToNextMonth: () => void;
   correctMonthlySavingsHistoryItem: (monthLabel: string, correctedSavingsAmount: number) => void;
+  deleteMonthlySavingsHistoryItem: (monthLabel: string) => void;
+  addMissingMonthlySavingsItem: (monthLabel: string, targetBudget: number, savingsAchieved: number) => void;
   
   // Auth & Admin Actions
   registerAccount: (name: string, email: string, password: string) => { success: boolean; message: string };
@@ -249,7 +251,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ? 100
     : Math.min(100, Math.max(30, Math.round(50 + ((monthlyIncome - monthlyExpenses) / (monthlyIncome || 1)) * 40)));
 
-  // MONTHLY SAVINGS CORRECTION & ACTIONS
+  // MONTHLY SAVINGS ACTIONS (ADD, EDIT, DELETE)
   const updateRunningMonthTargetBudget = (targetAmount: number) => {
     setUser(prev => ({ ...prev, runningMonthTargetBudget: targetAmount }));
 
@@ -291,7 +293,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       )
     );
 
-    // Sync correction to Google Sheet!
     syncTransactionToGoogleSheet({
       date: new Date().toISOString().split('T')[0],
       userName: user.name,
@@ -302,6 +303,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       amount: correctedSavingsAmount,
       paymentMethod: 'System',
       notes: `Corrected savings amount for ${monthLabel} to ${user.currencySymbol}${correctedSavingsAmount}`
+    });
+  };
+
+  const deleteMonthlySavingsHistoryItem = (monthLabel: string) => {
+    setMonthlySavingsHistory(prev => prev.filter(item => item.month !== monthLabel));
+
+    syncTransactionToGoogleSheet({
+      date: new Date().toISOString().split('T')[0],
+      userName: user.name,
+      userEmail: user.email,
+      title: `Deleted Month Savings Record (${monthLabel})`,
+      type: 'Delete Month Record',
+      category: 'Savings',
+      amount: 0,
+      paymentMethod: 'System',
+      notes: `Deleted savings history record for ${monthLabel}`
+    });
+  };
+
+  const addMissingMonthlySavingsItem = (monthLabel: string, targetBudget: number, savingsAchieved: number) => {
+    const newItem: MonthlyBudgetTarget = {
+      month: monthLabel,
+      targetBudget,
+      runningSpend: targetBudget - savingsAchieved,
+      savingsAchieved,
+      isRolledOver: true
+    };
+
+    setMonthlySavingsHistory(prev => [newItem, ...prev]);
+
+    // Also increment accumulated savings
+    setUser(prev => ({
+      ...prev,
+      totalAccumulatedSavings: (prev.totalAccumulatedSavings || 0) + savingsAchieved
+    }));
+
+    syncTransactionToGoogleSheet({
+      date: new Date().toISOString().split('T')[0],
+      userName: user.name,
+      userEmail: user.email,
+      title: `Added Missing Month Savings (${monthLabel})`,
+      type: 'Add Missing Month',
+      category: 'Savings',
+      amount: savingsAchieved,
+      paymentMethod: 'System',
+      notes: `Added missing month record for ${monthLabel} with savings of ${user.currencySymbol}${savingsAchieved}`
     });
   };
 
@@ -584,6 +631,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateAccumulatedSavingsAmount,
         rolloverRemainingSavingsToNextMonth,
         correctMonthlySavingsHistoryItem,
+        deleteMonthlySavingsHistoryItem,
+        addMissingMonthlySavingsItem,
         totalBalance,
         monthlyIncome,
         monthlyExpenses,

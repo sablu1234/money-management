@@ -19,7 +19,8 @@ import {
   Sparkles,
   CheckCircle2,
   X,
-  Check
+  Check,
+  Trash2
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -61,6 +62,8 @@ export const DashboardScreen: React.FC = () => {
     updateAccumulatedSavingsAmount,
     rolloverRemainingSavingsToNextMonth,
     correctMonthlySavingsHistoryItem,
+    deleteMonthlySavingsHistoryItem,
+    addMissingMonthlySavingsItem,
     setCurrentView,
     setActiveModal
   } = useApp();
@@ -75,6 +78,12 @@ export const DashboardScreen: React.FC = () => {
   // Edit Monthly Savings History Correction State
   const [editingMonthLabel, setEditingMonthLabel] = useState<string | null>(null);
   const [monthSavingsInput, setMonthSavingsInput] = useState('');
+
+  // Add Missing Month Modal State
+  const [showAddMissingMonthModal, setShowAddMissingMonthModal] = useState(false);
+  const [missingMonthName, setMissingMonthName] = useState('');
+  const [missingMonthTargetBudget, setMissingMonthTargetBudget] = useState('1000');
+  const [missingMonthSavingsAmount, setMissingMonthSavingsAmount] = useState('300');
 
   const [rolloverSuccess, setRolloverSuccess] = useState('');
 
@@ -109,6 +118,24 @@ export const DashboardScreen: React.FC = () => {
       setEditingMonthLabel(null);
       setMonthSavingsInput('');
     }
+  };
+
+  const handleAddMissingMonthSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!missingMonthName) return;
+
+    const targetVal = parseFloat(missingMonthTargetBudget) || 1000;
+    const savingsVal = parseFloat(missingMonthSavingsAmount) || 0;
+
+    addMissingMonthlySavingsItem(missingMonthName, targetVal, savingsVal);
+
+    setShowAddMissingMonthModal(false);
+    setMissingMonthName('');
+    setMissingMonthTargetBudget('1000');
+    setMissingMonthSavingsAmount('300');
+
+    setRolloverSuccess(`Added missing month entry for ${missingMonthName}!`);
+    setTimeout(() => setRolloverSuccess(''), 4000);
   };
 
   const handleRollover = () => {
@@ -302,13 +329,19 @@ export const DashboardScreen: React.FC = () => {
           </button>
         </div>
 
-        {/* Card 3: Month-by-Month Savings History with Correction Controls */}
+        {/* Card 3: Month-by-Month Savings History with Add & Delete Controls */}
         <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3 flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-black uppercase text-slate-900 dark:text-white flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-indigo-500" />
-              <span>Savings History & Correction</span>
+              <span>Savings History ({monthlySavingsHistory.length})</span>
             </h3>
+            <button
+              onClick={() => setShowAddMissingMonthModal(true)}
+              className="px-2 py-1 rounded-lg bg-indigo-600 text-white text-[11px] font-extrabold shadow hover:bg-indigo-700 flex items-center gap-1"
+            >
+              <Plus className="w-3 h-3" /> Add Missing Month
+            </button>
           </div>
 
           <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -343,22 +376,37 @@ export const DashboardScreen: React.FC = () => {
                       </button>
                     </div>
                   ) : (
-                    <div className="text-right flex items-center gap-2">
+                    <div className="text-right flex items-center gap-1.5">
                       <div>
                         <p className="font-black text-emerald-500">+{user.currencySymbol}{item.savingsAchieved}</p>
                         <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-bold">
                           Rolled Over
                         </span>
                       </div>
+
+                      {/* Edit Button */}
                       <button
                         onClick={() => {
                           setEditingMonthLabel(item.month);
                           setMonthSavingsInput(String(item.savingsAchieved));
                         }}
                         className="p-1 text-slate-400 hover:text-blue-500 rounded hover:bg-slate-100 dark:hover:bg-slate-800"
-                        title="Correct this month's savings amount"
+                        title="Edit this month's savings"
                       >
                         <Edit2 className="w-3 h-3" />
+                      </button>
+
+                      {/* Delete Button */}
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Delete savings record for ${item.month}?`)) {
+                            deleteMonthlySavingsHistoryItem(item.month);
+                          }
+                        }}
+                        className="p-1 text-slate-400 hover:text-rose-500 rounded hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                        title="Delete this month's record"
+                      >
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     </div>
                   )}
@@ -369,6 +417,85 @@ export const DashboardScreen: React.FC = () => {
         </div>
 
       </div>
+
+      {/* MODAL: Add Missing Month Savings Record */}
+      {showAddMissingMonthModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-indigo-500" /> Add Missing Month Record
+              </h3>
+              <button
+                onClick={() => setShowAddMissingMonthModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddMissingMonthSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Month & Year (e.g. April 2026)
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. April 2026"
+                  value={missingMonthName}
+                  onChange={e => setMissingMonthName(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Target Budget ({user.currencySymbol})
+                </label>
+                <input
+                  type="number"
+                  required
+                  placeholder="1000"
+                  value={missingMonthTargetBudget}
+                  onChange={e => setMissingMonthTargetBudget(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Savings Achieved ({user.currencySymbol})
+                </label>
+                <input
+                  type="number"
+                  required
+                  placeholder="300"
+                  value={missingMonthSavingsAmount}
+                  onChange={e => setMissingMonthSavingsAmount(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddMissingMonthModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold shadow"
+                >
+                  Save Month Record
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Top 5 Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
