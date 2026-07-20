@@ -259,9 +259,10 @@ export const Navbar: React.FC<{ onToggleMobileSidebar: () => void }> = ({ onTogg
             ) : (
               <button
                 onClick={() => setCurrentView('auth')}
-                className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700"
+                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black shadow-md glow-blue flex items-center gap-1 active:scale-95 transition-all"
               >
-                Sign In
+                <User className="w-3.5 h-3.5" />
+                <span>Sign Up / Login</span>
               </button>
             )}
 

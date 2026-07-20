@@ -12,7 +12,9 @@ import {
   ShieldAlert,
   Sparkles,
   ExternalLink,
-  Home
+  Home,
+  LogIn,
+  X
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -25,6 +27,7 @@ interface SidebarItem {
 
 const SIDEBAR_ITEMS: SidebarItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'auth', label: 'Sign Up / Login', icon: LogIn, badge: 'Auth' },
   { id: 'transactions', label: 'Transactions', icon: Receipt },
   { id: 'budgets', label: 'Budget Plan', icon: PieChart },
   { id: 'goals', label: 'Savings Goals', icon: Target },
@@ -36,7 +39,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
 ];
 
 export const Sidebar: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
-  const { currentView, setCurrentView, user } = useApp();
+  const { currentView, setCurrentView, user, isLoggedIn } = useApp();
 
   return (
     <>
@@ -53,8 +56,19 @@ export const Sidebar: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ is
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        <div className="space-y-6">
+        <div className="space-y-5">
           
+          {/* Mobile Header with Close Button */}
+          <div className="flex items-center justify-between md:hidden pb-2 border-b border-slate-100 dark:border-slate-800">
+            <span className="font-extrabold text-sm text-slate-900 dark:text-white">MoneyFlow Menu</span>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
           {/* User Quick Info */}
           <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-emerald-500/10 border border-blue-100 dark:border-blue-900/50">
             <div className="flex items-center gap-3">
@@ -64,11 +78,11 @@ export const Sidebar: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ is
                 className="w-10 h-10 rounded-xl object-cover ring-2 ring-blue-500/30"
               />
               <div className="overflow-hidden">
-                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{user.name}</p>
+                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{isLoggedIn ? user.name : 'Guest User'}</p>
                 <div className="flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-amber-500 fill-amber-500" />
                   <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 capitalize">
-                    {user.role} Plan
+                    {isLoggedIn ? `${user.role} Plan` : 'Sign Up to Access'}
                   </span>
                 </div>
               </div>
