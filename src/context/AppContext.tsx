@@ -11,6 +11,7 @@ import type {
   AdminUser,
   AccountStatus
 } from '../types';
+import { syncTransactionToGoogleSheet, GOOGLE_SHEET_URL } from '../services/googleSheetSync';
 
 export type ScreenView =
   | 'landing'
@@ -48,6 +49,7 @@ interface AppContextType {
   selectedCategoryFilter: string;
   isLoggedIn: boolean;
   adminPassword: string;
+  googleSheetUrl: string;
   
   // Actions
   setCurrentView: (view: ScreenView) => void;
@@ -102,12 +104,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return localStorage.getItem('moneyflow_is_logged_in') === 'true' ? 'dashboard' : 'landing';
   });
 
-  // Admin Secret Password (Default: SabluAdmin#2026)
   const [adminPassword, setAdminPassword] = useState<string>(() => {
     return localStorage.getItem('moneyflow_admin_pass') || 'SabluAdmin#2026';
   });
 
-  // Registered Users DB
   const [registeredUsers, setRegisteredUsers] = useState<RegisteredUserAccount[]>(() => {
     const saved = localStorage.getItem('moneyflow_registered_db');
     return saved
@@ -144,7 +144,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
   });
 
-  // Empty initial transactions so initial balance is 0.00!
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('moneyflow_transactions');
     return saved ? JSON.parse(saved) : [];
@@ -165,7 +164,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('All');
 
-  // LocalStorage Persistence
+  // Persistence
   useEffect(() => {
     localStorage.setItem('moneyflow_is_logged_in', isLoggedIn ? 'true' : 'false');
   }, [isLoggedIn]);
@@ -199,7 +198,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('moneyflow_goals', JSON.stringify(goals));
   }, [goals]);
 
-  // Derived Admin Users list
   const adminUsers: AdminUser[] = registeredUsers.map((u, i) => ({
     id: `u-${i}`,
     name: u.name,
@@ -210,7 +208,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     totalTransactions: 0
   }));
 
-  // Clean Financial Calculations (Starts strictly at 0.00!)
   const monthlyIncome = transactions
     .filter(t => t.type === 'income')
     .reduce((acc, t) => acc + t.amount, 0);
@@ -219,7 +216,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => acc + t.amount, 0);
 
-  const totalBalance = monthlyIncome - monthlyExpenses; // 0.00 by default!
+  const totalBalance = monthlyIncome - monthlyExpenses;
   const totalSavings = goals.reduce((acc, g) => acc + g.currentAmount, 0);
   const totalBudgetLimit = budgets.reduce((acc, b) => acc + b.monthlyLimit, 0);
   const remainingBudget = Math.max(0, totalBudgetLimit - monthlyExpenses);
@@ -248,6 +245,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setRegisteredUsers(prev => [...prev, newAcc]);
+
+    // Also sync registration to Google Sheet!
+    syncTransactionToGoogleSheet({
+      date: new Date().toISOString().split('T')[0],
+      userName: name,
+      userEmail: lowerEmail,
+      title: 'New Account Registration',
+      type: 'Registration',
+      category: 'User System',
+      amount: 0,
+      paymentMethod: 'Web Portal',
+      notes: `Account created with status: ${isAdmin ? 'Approved' : 'Pending'}`
+    });
+
     return {
       success: true,
       message: isAdmin
@@ -352,6 +363,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         )
       );
     }
+
+    // Auto Sync Transaction Data to Google Sheet!
+    syncTransactionToGoogleSheet({
+      date: tx.date,
+      userName: user.name,
+      userEmail: user.email,
+      title: tx.title,
+      type: tx.type,
+      category: tx.category,
+      amount: tx.amount,
+      paymentMethod: tx.paymentMethod,
+      notes: tx.notes
+    });
   };
 
   const deleteTransaction = (id: string) => {
@@ -423,6 +447,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         selectedCategoryFilter,
         isLoggedIn,
         adminPassword,
+        googleSheetUrl: GOOGLE_SHEET_URL,
         setCurrentView,
         setActiveModal,
         setSelectedCategoryFilter,

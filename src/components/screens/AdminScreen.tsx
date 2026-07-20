@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Shield, Users, DollarSign, Activity, Lock, CheckCircle, ArrowUpRight, Check, X, Clock } from 'lucide-react';
+import { Shield, Users, DollarSign, Activity, Lock, ArrowUpRight, Check, X, Clock, FileSpreadsheet, ExternalLink } from 'lucide-react';
+import { setGoogleSheetWebhook, getGoogleSheetWebhook } from '../../services/googleSheetSync';
 import {
   ResponsiveContainer,
   BarChart,
@@ -22,7 +23,9 @@ const ADMIN_REVENUE_DATA = [
 ];
 
 export const AdminScreen: React.FC = () => {
-  const { user, adminUsers, approveUser, rejectUser } = useApp();
+  const { user, adminUsers, approveUser, rejectUser, googleSheetUrl } = useApp();
+  const [webhookInput, setWebhookInput] = useState(getGoogleSheetWebhook());
+  const [webhookMsg, setWebhookMsg] = useState('');
 
   if (user.role !== 'admin') {
     return (
@@ -40,6 +43,13 @@ export const AdminScreen: React.FC = () => {
 
   const pendingUsers = adminUsers.filter(u => u.approvalStatus === 'Pending');
 
+  const handleSaveWebhook = (e: React.FormEvent) => {
+    e.preventDefault();
+    setGoogleSheetWebhook(webhookInput);
+    setWebhookMsg('Google Sheet Webhook saved successfully!');
+    setTimeout(() => setWebhookMsg(''), 3000);
+  };
+
   return (
     <div className="space-y-6 py-4 animate-in fade-in duration-300">
       
@@ -52,14 +62,66 @@ export const AdminScreen: React.FC = () => {
           <div>
             <h1 className="text-xl font-black">Sablu Hasan Admin Console</h1>
             <p className="text-xs text-slate-300 mt-0.5">
-              Approve user registrations, system analytics, and SaaS revenue
+              Approve user registrations, system analytics, and Google Sheets integration
             </p>
           </div>
         </div>
 
-        <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-extrabold flex items-center gap-1">
-          <CheckCircle className="w-3.5 h-3.5" /> System Healthy
-        </span>
+        <a
+          href={googleSheetUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs flex items-center gap-2 shadow-lg"
+        >
+          <FileSpreadsheet className="w-4 h-4" />
+          <span>Open Linked Google Sheet</span>
+          <ExternalLink className="w-3.5 h-3.5" />
+        </a>
+      </div>
+
+      {/* Google Sheet Live Database Card */}
+      <div className="glass-card p-6 rounded-3xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-500/5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <FileSpreadsheet className="w-5 h-5 text-emerald-500" />
+            <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
+              Google Sheet Live Database Integration
+            </h3>
+          </div>
+          <a
+            href={googleSheetUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+          >
+            <span>View Spreadsheet (gid=0)</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+
+        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+          All user registration requests and transaction entries can automatically sync live to your Google Sheet: <strong className="text-slate-900 dark:text-white truncate block sm:inline">{googleSheetUrl}</strong>
+        </p>
+
+        <form onSubmit={handleSaveWebhook} className="space-y-2">
+          <label className="block text-[11px] font-bold text-slate-500">Google Apps Script Webhook URL (Optional for Auto-Sync)</label>
+          <div className="flex gap-2">
+            <input
+              type="url"
+              placeholder="https://script.google.com/macros/s/.../exec"
+              value={webhookInput}
+              onChange={e => setWebhookInput(e.target.value)}
+              className="flex-1 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium"
+            />
+            <button
+              type="submit"
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white font-extrabold text-xs shadow hover:bg-emerald-700"
+            >
+              Save Webhook
+            </button>
+          </div>
+          {webhookMsg && <p className="text-xs font-bold text-emerald-500 mt-1">{webhookMsg}</p>}
+        </form>
       </div>
 
       {/* Admin Top KPI Cards */}
