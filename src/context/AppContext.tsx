@@ -63,6 +63,8 @@ interface AppContextType {
   updateBudgetLimit: (id: string, limit: number) => void;
   addGoal: (goal: Omit<SavingsGoal, 'id' | 'currentAmount'>) => void;
   depositToGoal: (id: string, amount: number) => void;
+  withdrawFromSavingsGoal: (id: string, amount: number) => void;
+  withdrawDirectlyFromTotalSavings: (amount: number, reason: string) => void;
   toggleTheme: () => void;
   changeCurrency: (code: CurrencyCode) => void;
   markNotificationRead: (id: string) => void;
@@ -241,7 +243,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const totalBalance = monthlyIncome - monthlyExpenses;
 
-  // Real-time Dynamic Accumulated Savings Calculation: Sum of all monthly savings achieved + goals deposits + base manual override
+  // Dynamically calculate total savings: sum of history items + base accumulated savings + goals
   const sumOfHistorySavings = monthlySavingsHistory.reduce((acc, item) => acc + item.savingsAchieved, 0);
   const totalSavings = sumOfHistorySavings + (user.totalAccumulatedSavings || 0) + goals.reduce((acc, g) => acc + g.currentAmount, 0);
 
@@ -252,7 +254,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ? 100
     : Math.min(100, Math.max(30, Math.round(50 + ((monthlyIncome - monthlyExpenses) / (monthlyIncome || 1)) * 40)));
 
-  // UNIQUE MONTHLY SAVINGS ACTIONS (PREVENTS DUPLICATE MONTH ENTRIES & DYNAMICALLY UPDATES ACCUMULATED SAVINGS!)
+  // WITHDRAWALS / DEDUCTIONS FROM SAVINGS
+  const withdrawFromSavingsGoal = (id: string, amount: number) => {
+    setGoals(prev =>
+      prev.map(g => (g.id === id ? { ...g, currentAmount: Math.max(0, g.currentAmount - amount) } : g))
+    );
+
+    syncTransactionToGoogleSheet({
+      date: new Date().toISOString().split('T')[0],
+      userName: user.name,
+      userEmail: user.email,
+      title: 'Withdrawal from Savings Goal',
+      type: 'Savings Deduction',
+      category: 'Savings',
+      amount: -amount,
+      paymentMethod: 'System',
+      notes: `Deducted ${user.currencySymbol}${amount} from savings goal`
+    });
+  };
+
+  const withdrawDirectlyFromTotalSavings = (amount: number, reason: string) => {
+    setUser(prev => ({
+      ...prev,
+      totalAccumulatedSavings: (prev.totalAccumulatedSavings || 0) - amount
+    }));
+
+    syncTransactionToGoogleSheet({
+      date: new Date().toISOString().split('T')[0],
+      userName: user.name,
+      userEmail: user.email,
+      title: `Savings Deduction (${reason || 'Withdrawal'})`,
+      type: 'Savings Deduction',
+      category: 'Savings',
+      amount: -amount,
+      paymentMethod: 'System',
+      notes: `Deducted ${user.currencySymbol}${amount} from total savings for: ${reason}`
+    });
+  };
+
+  // UNIQUE MONTHLY SAVINGS ACTIONS
   const updateRunningMonthTargetBudget = (targetAmount: number) => {
     setUser(prev => ({ ...prev, runningMonthTargetBudget: targetAmount }));
 
@@ -650,6 +690,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateBudgetLimit,
         addGoal,
         depositToGoal,
+        withdrawFromSavingsGoal,
+        withdrawDirectlyFromTotalSavings,
         toggleTheme,
         changeCurrency,
         markNotificationRead,
