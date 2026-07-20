@@ -75,6 +75,10 @@ export const DashboardScreen: React.FC = () => {
   const [editingSavings, setEditingSavings] = useState(false);
   const [savingsInput, setSavingsInput] = useState(String(user.totalAccumulatedSavings || 0));
 
+  // Edit Accumulated Savings Card Inline State
+  const [editingAccumulatedSavingsCard, setEditingAccumulatedSavingsCard] = useState(false);
+  const [accumulatedCardInput, setAccumulatedCardInput] = useState(String(totalSavings));
+
   // Edit Monthly Savings History Correction State
   const [editingMonthLabel, setEditingMonthLabel] = useState<string | null>(null);
   const [monthSavingsInput, setMonthSavingsInput] = useState('');
@@ -108,6 +112,15 @@ export const DashboardScreen: React.FC = () => {
     if (!isNaN(val) && val >= 0) {
       updateAccumulatedSavingsAmount(val);
       setEditingSavings(false);
+    }
+  };
+
+  const handleSaveAccumulatedSavingsCard = (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseFloat(accumulatedCardInput);
+    if (!isNaN(val) && val >= 0) {
+      updateAccumulatedSavingsAmount(val);
+      setEditingAccumulatedSavingsCard(false);
     }
   };
 
@@ -554,19 +567,50 @@ export const DashboardScreen: React.FC = () => {
           </p>
         </div>
 
-        {/* Total Accumulated Savings */}
+        {/* Total Accumulated Savings WITH INLINE EDIT BUTTON */}
         <div className="glass-card p-4 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Accumulated Savings
             </span>
-            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500">
-              <PiggyBank className="w-4 h-4" />
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  setEditingAccumulatedSavingsCard(!editingAccumulatedSavingsCard);
+                  setAccumulatedCardInput(String(totalSavings));
+                }}
+                className="p-1 text-slate-400 hover:text-indigo-500 rounded hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+                title="Edit Accumulated Savings"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+              </button>
+              <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500">
+                <PiggyBank className="w-4 h-4" />
+              </div>
             </div>
           </div>
-          <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
-            {user.currencySymbol}{totalSavings.toLocaleString()}
-          </p>
+
+          {editingAccumulatedSavingsCard ? (
+            <form onSubmit={handleSaveAccumulatedSavingsCard} className="flex gap-1 py-1">
+              <input
+                type="number"
+                value={accumulatedCardInput}
+                onChange={e => setAccumulatedCardInput(e.target.value)}
+                className="w-full p-1 text-xs font-bold rounded border border-indigo-500 bg-white dark:bg-slate-900"
+              />
+              <button
+                type="submit"
+                className="px-2 py-1 bg-indigo-600 text-white rounded text-xs font-bold"
+              >
+                Save
+              </button>
+            </form>
+          ) : (
+            <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
+              {user.currencySymbol}{totalSavings.toLocaleString()}
+            </p>
+          )}
+
           <p className="text-[10px] text-indigo-500 font-bold">
             Total savings reserve
           </p>
