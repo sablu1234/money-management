@@ -1,4 +1,4 @@
-// Google Sheets Live Single-Row User Summary Sync Utility & Admin Email Alerts
+// Google Sheets 14-Column Single-Row Master Database Sync Utility
 // Spreadsheet ID: 1rjbnHvr0Jje93dQOy0GnyPBSCLZc3gNfCYSed2JT5wU
 
 export const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1rjbnHvr0Jje93dQOy0GnyPBSCLZc3gNfCYSed2JT5wU/edit?gid=0#gid=0';
@@ -19,35 +19,41 @@ export const setGoogleSheetWebhook = (url: string) => {
 
 export const getGoogleSheetWebhook = () => webhookUrl;
 
-export interface UserSummarySheetPayload {
+export interface FullUserRowPayload {
   userId: string;
   userName: string;
   userEmail: string;
+  role: string;
+  plan: string;
+  approvalStatus: string;
   totalBalance: number;
   monthlyIncome: number;
   monthlyExpenses: number;
   totalSavings: number;
   targetBudget: number;
-  lastAction?: string;
-  accountStatus?: string;
+  remainingBudget: number;
+  lastAction: string;
   isRegistration?: boolean;
 }
 
-export async function syncUserTotalsToGoogleSheet(data: UserSummarySheetPayload) {
+export async function syncFullUserRowToGoogleSheet(data: FullUserRowPayload) {
   const targetUrl = webhookUrl || DEFAULT_WEBHOOK_URL;
 
   const payload = {
     userId: data.userId || 'USR-1001',
     userName: data.userName,
     userEmail: data.userEmail,
+    role: data.role || 'normal',
+    plan: data.plan || 'Free',
+    approvalStatus: data.approvalStatus || 'Approved',
     totalBalance: data.totalBalance,
     monthlyIncome: data.monthlyIncome,
     monthlyExpenses: data.monthlyExpenses,
     totalSavings: data.totalSavings,
     targetBudget: data.targetBudget,
+    remainingBudget: data.remainingBudget,
+    lastAction: data.lastAction || 'Updated Metrics',
     lastUpdated: new Date().toLocaleString(),
-    lastAction: data.lastAction || 'Updated Financial Metrics',
-    accountStatus: data.accountStatus || 'Approved',
     isRegistration: data.isRegistration || false,
     notifyEmails: ADMIN_NOTIFICATION_EMAILS
   };
@@ -61,10 +67,10 @@ export async function syncUserTotalsToGoogleSheet(data: UserSummarySheetPayload)
       },
       body: JSON.stringify(payload)
     });
-    console.log('Synced Single Row User Total Amounts to Google Sheet:', payload);
+    console.log('Synced 14-Column Single Row User Master Data to Google Sheet:', payload);
     return true;
   } catch (err) {
-    console.error('Error syncing single row user totals:', err);
+    console.error('Error syncing 14-column single row master data:', err);
     return false;
   }
 }
