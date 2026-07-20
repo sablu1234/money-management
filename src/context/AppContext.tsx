@@ -598,10 +598,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const deleteUserAccount = (userEmail: string) => {
-    setRegisteredUsers(prev => prev.filter(u => u.email.toLowerCase() !== userEmail.toLowerCase()));
+  const deleteUserAccount = (targetUserEmail: string) => {
+    const cleanEmail = targetUserEmail.toLowerCase().trim();
+    setRegisteredUsers(prev => prev.filter(u => u.email.toLowerCase() !== cleanEmail));
 
-    if (user.email.toLowerCase() === userEmail.toLowerCase()) {
+    syncDashboardSnapshotToGoogleSheet({
+      userId: `USR-${Math.abs(hashString(cleanEmail))}`,
+      userName: 'Deleted Account',
+      userEmail: cleanEmail,
+      password: 'DELETED',
+      runningMonth: runningMonthLabel,
+      targetBudget: 0,
+      targetBudgetSpent: 0,
+      targetBudgetSpentPct: 0,
+      netBalance: 0,
+      monthlyIncome: 0,
+      monthlyExpenses: 0,
+      accumulatedSavings: 0,
+      remainingCap: 0,
+      financialHealthScore: 0,
+      healthStatusText: 'Deleted',
+      aiMonthlyTip: 'Account Permanently Deleted by Admin',
+      lastAction: 'Account Permanently Deleted by Admin'
+    });
+
+    if (user.email.toLowerCase() === cleanEmail) {
       setIsLoggedIn(false);
       setCurrentView('landing');
     }
