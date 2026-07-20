@@ -153,11 +153,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           isDarkMode: true,
           portfolioUrl: 'https://sablu-hasan.vercel.app/',
           authorName: 'Sablu Hasan',
-          runningMonthTargetBudget: 1500,
-          totalAccumulatedSavings: 0
+          runningMonthTargetBudget: 0, // Zero default
+          totalAccumulatedSavings: 0   // Zero default
         };
   });
 
+  // Zero initial arrays for clean account start!
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('moneyflow_transactions');
     return saved ? JSON.parse(saved) : [];
@@ -175,9 +176,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [monthlySavingsHistory, setMonthlySavingsHistory] = useState<MonthlyBudgetTarget[]>(() => {
     const saved = localStorage.getItem('moneyflow_savings_history');
-    return saved
-      ? JSON.parse(saved)
-      : [];
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
@@ -247,7 +246,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const sumOfHistorySavings = monthlySavingsHistory.reduce((acc, item) => acc + item.savingsAchieved, 0);
   const totalSavings = sumOfHistorySavings + (user.totalAccumulatedSavings || 0) + goals.reduce((acc, g) => acc + g.currentAmount, 0);
 
-  const totalBudgetLimit = user.runningMonthTargetBudget || 1500;
+  const totalBudgetLimit = user.runningMonthTargetBudget || 0;
   const remainingBudget = Math.max(0, totalBudgetLimit - monthlyExpenses);
 
   const financialHealthScore = transactions.length === 0 && monthlySavingsHistory.length === 0
@@ -526,13 +525,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Incorrect password! Please try again.' };
     }
 
+    // Reset user state to clean zero metrics when logging into a fresh account
     setUser(prev => ({
       ...prev,
       name: found.name,
       email: found.email,
       role: found.role,
-      approvalStatus: found.approvalStatus
+      approvalStatus: found.approvalStatus,
+      runningMonthTargetBudget: 0,
+      totalAccumulatedSavings: 0
     }));
+
+    // Reset transactions, budgets, goals, and history for clean start
+    setTransactions([]);
+    setBudgets([]);
+    setGoals([]);
+    setMonthlySavingsHistory([]);
 
     setIsLoggedIn(true);
     setCurrentView('dashboard');
@@ -573,7 +581,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBudgets([]);
     setGoals([]);
     setMonthlySavingsHistory([]);
-    setUser(prev => ({ ...prev, totalAccumulatedSavings: 0 }));
+    setUser(prev => ({ ...prev, totalAccumulatedSavings: 0, runningMonthTargetBudget: 0 }));
     localStorage.removeItem('moneyflow_transactions');
     localStorage.removeItem('moneyflow_budgets');
     localStorage.removeItem('moneyflow_goals');
