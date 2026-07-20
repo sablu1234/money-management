@@ -79,12 +79,14 @@ interface AppContextType {
   deleteMonthlySavingsHistoryItem: (monthLabel: string) => void;
   addMissingMonthlySavingsItem: (monthLabel: string, targetBudget: number, savingsAchieved: number) => { success: boolean; message: string };
   
-  // Auth & Admin Actions with Google Sheet Logging
+  // Auth & Admin Account Management Actions
   registerAccount: (name: string, email: string, password: string) => { success: boolean; message: string };
   loginUser: (email: string, password: string) => { success: boolean; message: string };
   logoutUser: () => void;
   approveUser: (email: string) => void;
   rejectUser: (email: string) => void;
+  deactivateUser: (email: string) => void;
+  deleteUserAccount: (email: string) => void;
   changeAdminPassword: (newPass: string) => void;
   resetAllDataToZero: () => void;
   
@@ -241,7 +243,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const totalBalance = monthlyIncome - monthlyExpenses;
 
-  // Dynamically calculate total savings: sum of history items + base accumulated savings + goals
   const sumOfHistorySavings = monthlySavingsHistory.reduce((acc, item) => acc + item.savingsAchieved, 0);
   const totalSavings = sumOfHistorySavings + (user.totalAccumulatedSavings || 0) + goals.reduce((acc, g) => acc + g.currentAmount, 0);
 
@@ -462,12 +463,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  // AUTH ACTIONS WITH GOOGLE SHEET LOGIN & LOGOUT STATUS LOGGING
+  // AUTH & ADMIN ACCOUNT MANAGEMENT ACTIONS
   const registerAccount = (name: string, email: string, password: string) => {
     const lowerEmail = email.toLowerCase().trim();
     const exists = registeredUsers.some(u => u.email.toLowerCase() === lowerEmail);
     if (exists) {
-      return { success: false, message: 'An account with this email already exists!' };
+      return { success: false, message: 'An account with this email already exists! Please click Sign In to log in.' };
     }
 
     const isAdmin = lowerEmail === 'sablu.hasan.dev@gmail.com';
@@ -550,6 +551,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Incorrect password! Please try again.' };
     }
 
+    if (found.approvalStatus === 'Deactivated') {
+      return { success: false, message: 'Your account has been deactivated by Admin Sablu Hasan. Access restricted.' };
+    }
+
     const assignedUserId = `USR-${Math.abs(hashString(found.email))}`;
 
     setUser(prev => ({
@@ -614,12 +619,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (user.email.toLowerCase() === userEmail.toLowerCase()) {
       setUser(prev => ({ ...prev, approvalStatus: 'Approved' }));
     }
+
+    syncTransactionToGoogleSheet({
+      userId: `USR-${Math.abs(hashString(userEmail))}`,
+      date: new Date().toISOString().split('T')[0],
+      userName: 'User Account',
+      userEmail: userEmail,
+      title: 'Account Approval Status Updated',
+      type: 'User Approved',
+      category: 'User System',
+      amount: 0,
+      paymentMethod: 'Admin Panel',
+      notes: 'Account approved by Admin Sablu Hasan'
+    });
   };
 
   const rejectUser = (userEmail: string) => {
     setRegisteredUsers(prev =>
       prev.map(u => (u.email.toLowerCase() === userEmail.toLowerCase() ? { ...u, approvalStatus: 'Rejected' } : u))
     );
+  };
+
+  const deactivateUser = (userEmail: string) => {
+    setRegisteredUsers(prev =>
+      prev.map(u => (u.email.toLowerCase() === userEmail.toLowerCase() ? { ...u, approvalStatus: 'Deactivated' } : u))
+    );
+
+    if (user.email.toLowerCase() === userEmail.toLowerCase()) {
+      setUser(prev => ({ ...prev, approvalStatus: 'Deactivated' }));
+      setIsLoggedIn(false);
+    }
+
+    syncTransactionToGoogleSheet({
+      userId: `USR-${Math.abs(hashString(userEmail))}`,
+      date: new Date().toISOString().split('T')[0],
+      userName: 'User Account',
+      userEmail: userEmail,
+      title: 'Account Deactivated',
+      type: 'Account Deactivated',
+      category: 'User System',
+      amount: 0,
+      paymentMethod: 'Admin Panel',
+      notes: 'Account deactivated by Admin Sablu Hasan'
+    });
+  };
+
+  const deleteUserAccount = (userEmail: string) => {
+    setRegisteredUsers(prev => prev.filter(u => u.email.toLowerCase() !== userEmail.toLowerCase()));
+
+    if (user.email.toLowerCase() === userEmail.toLowerCase()) {
+      setIsLoggedIn(false);
+      setCurrentView('landing');
+    }
+
+    syncTransactionToGoogleSheet({
+      userId: `USR-${Math.abs(hashString(userEmail))}`,
+      date: new Date().toISOString().split('T')[0],
+      userName: 'User Account',
+      userEmail: userEmail,
+      title: 'Account Permanently Deleted',
+      type: 'Account Deleted',
+      category: 'User System',
+      amount: 0,
+      paymentMethod: 'Admin Panel',
+      notes: 'Account permanently deleted by Admin Sablu Hasan'
+    });
   };
 
   const changeAdminPassword = (newPass: string) => {
@@ -764,6 +828,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         logoutUser,
         approveUser,
         rejectUser,
+        deactivateUser,
+        deleteUserAccount,
         changeAdminPassword,
         resetAllDataToZero,
         updateRunningMonthTargetBudget,

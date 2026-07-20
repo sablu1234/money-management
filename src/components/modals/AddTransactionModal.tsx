@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { X, Upload, Calendar, Tag, CreditCard, FileText } from 'lucide-react';
-import type { TransactionType, PaymentMethod } from '../../types';
+import type { TransactionType } from '../../types';
 
 const CATEGORIES_BY_TYPE = {
   income: ['Salary', 'Freelancing', 'Business', 'Investment', 'Other Income'],
   expense: ['Food', 'Transport', 'Shopping', 'Entertainment', 'Healthcare', 'Bills', 'Education', 'Travel', 'Others']
 };
 
-const PAYMENT_METHODS: PaymentMethod[] = [
+const PAYMENT_METHODS = [
   'Cash',
   'Bank Account',
   'Credit Card',
@@ -23,7 +23,7 @@ export const AddTransactionModal: React.FC = () => {
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState(CATEGORIES_BY_TYPE.expense[0]);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Credit Card');
+  const [paymentMethod, setPaymentMethod] = useState('Credit Card');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
   const [receiptName, setReceiptName] = useState<string | null>(null);
@@ -42,8 +42,7 @@ export const AddTransactionModal: React.FC = () => {
       paymentMethod,
       date,
       status: 'Completed',
-      notes,
-      receiptUrl: receiptName ? 'simulated_receipt.jpg' : undefined
+      notes
     });
 
     setActiveModal(null);
@@ -197,7 +196,7 @@ export const AddTransactionModal: React.FC = () => {
                 <CreditCard className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
                 <select
                   value={paymentMethod}
-                  onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
+                  onChange={e => setPaymentMethod(e.target.value)}
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
                 >
                   {PAYMENT_METHODS.map(pm => (

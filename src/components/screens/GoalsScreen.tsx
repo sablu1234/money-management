@@ -20,12 +20,10 @@ export const GoalsScreen: React.FC = () => {
     if (!title || !targetAmount) return;
 
     addGoal({
-      title,
+      name: title,
       targetAmount: parseFloat(targetAmount),
-      deadline,
-      category: 'Technology',
-      icon: 'Target',
-      autoSaveMonthly: 200
+      targetDate: deadline,
+      category: 'Technology'
     });
 
     setTitle('');
@@ -103,9 +101,9 @@ export const GoalsScreen: React.FC = () => {
                 <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-500/20 to-emerald-500/20 flex items-center justify-center text-blue-500">
                   <Target className="w-5 h-5" />
                 </div>
-                <h3 className="text-base font-black text-slate-900 dark:text-white">{goal.title}</h3>
+                <h3 className="text-base font-black text-slate-900 dark:text-white">{goal.name}</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  Target Deadline: <span className="font-bold text-slate-700 dark:text-slate-300">{goal.deadline}</span>
+                  Target Deadline: <span className="font-bold text-slate-700 dark:text-slate-300">{goal.targetDate}</span>
                 </p>
               </div>
 
