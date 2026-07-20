@@ -22,7 +22,7 @@ import { CurrencyConverterModal } from './components/modals/CurrencyConverterMod
 import { ExportReportModal } from './components/modals/ExportReportModal';
 
 const AppContent: React.FC = () => {
-  const { currentView } = useApp();
+  const { currentView, isLoggedIn } = useApp();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const renderCurrentScreen = () => {
@@ -58,24 +58,22 @@ const AppContent: React.FC = () => {
       <Navbar onToggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)} />
 
       {/* Main Layout */}
-      <div className="flex-1 flex max-w-7xl w-full mx-auto">
+      <div className="flex-1 flex max-w-7xl w-full mx-auto relative">
         
-        {/* Desktop Sidebar (and Collapsible Mobile Sidebar) */}
-        {currentView !== 'landing' && currentView !== 'auth' && (
-          <Sidebar
-            isOpen={mobileSidebarOpen}
-            onClose={() => setMobileSidebarOpen(false)}
-          />
-        )}
+        {/* Sidebar (Always rendered so mobile drawer toggle works on every screen!) */}
+        <Sidebar
+          isOpen={mobileSidebarOpen}
+          onClose={() => setMobileSidebarOpen(false)}
+        />
 
         {/* Dynamic Main Workspace Area */}
-        <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6 overflow-y-auto">
+        <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6 overflow-y-auto w-full">
           {renderCurrentScreen()}
         </main>
       </div>
 
-      {/* Mobile Touch Bottom Nav */}
-      {currentView !== 'landing' && currentView !== 'auth' && <MobileNav />}
+      {/* Mobile Touch Bottom Nav (Visible when logged in) */}
+      {isLoggedIn && <MobileNav />}
 
       {/* Modals */}
       <AddTransactionModal />
