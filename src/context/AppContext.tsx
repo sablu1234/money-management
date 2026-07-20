@@ -69,10 +69,11 @@ interface AppContextType {
   clearAllNotifications: () => void;
   addAIQuery: (query: string, response: string) => void;
   
-  // New Monthly Budget & Savings Actions
+  // Monthly Budget & Savings Correction Actions
   updateRunningMonthTargetBudget: (targetAmount: number) => void;
   updateAccumulatedSavingsAmount: (newSavingsAmount: number) => void;
   rolloverRemainingSavingsToNextMonth: () => void;
+  correctMonthlySavingsHistoryItem: (monthLabel: string, correctedSavingsAmount: number) => void;
   
   // Auth & Admin Actions
   registerAccount: (name: string, email: string, password: string) => { success: boolean; message: string };
@@ -248,7 +249,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ? 100
     : Math.min(100, Math.max(30, Math.round(50 + ((monthlyIncome - monthlyExpenses) / (monthlyIncome || 1)) * 40)));
 
-  // NEW MONTHLY BUDGET & SAVINGS ACTIONS
+  // MONTHLY SAVINGS CORRECTION & ACTIONS
   const updateRunningMonthTargetBudget = (targetAmount: number) => {
     setUser(prev => ({ ...prev, runningMonthTargetBudget: targetAmount }));
 
@@ -278,6 +279,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       amount: newSavingsAmount,
       paymentMethod: 'System',
       notes: `Adjusted total accumulated savings to ${user.currencySymbol}${newSavingsAmount}`
+    });
+  };
+
+  const correctMonthlySavingsHistoryItem = (monthLabel: string, correctedSavingsAmount: number) => {
+    setMonthlySavingsHistory(prev =>
+      prev.map(item =>
+        item.month === monthLabel
+          ? { ...item, savingsAchieved: correctedSavingsAmount }
+          : item
+      )
+    );
+
+    // Sync correction to Google Sheet!
+    syncTransactionToGoogleSheet({
+      date: new Date().toISOString().split('T')[0],
+      userName: user.name,
+      userEmail: user.email,
+      title: `Savings History Correction (${monthLabel})`,
+      type: 'Savings Correction',
+      category: 'Savings',
+      amount: correctedSavingsAmount,
+      paymentMethod: 'System',
+      notes: `Corrected savings amount for ${monthLabel} to ${user.currencySymbol}${correctedSavingsAmount}`
     });
   };
 
@@ -559,6 +583,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateRunningMonthTargetBudget,
         updateAccumulatedSavingsAmount,
         rolloverRemainingSavingsToNextMonth,
+        correctMonthlySavingsHistoryItem,
         totalBalance,
         monthlyIncome,
         monthlyExpenses,

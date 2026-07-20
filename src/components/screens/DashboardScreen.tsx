@@ -17,7 +17,9 @@ import {
   Edit2,
   Calendar,
   Sparkles,
-  CheckCircle2
+  CheckCircle2,
+  X,
+  Check
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -58,6 +60,7 @@ export const DashboardScreen: React.FC = () => {
     updateRunningMonthTargetBudget,
     updateAccumulatedSavingsAmount,
     rolloverRemainingSavingsToNextMonth,
+    correctMonthlySavingsHistoryItem,
     setCurrentView,
     setActiveModal
   } = useApp();
@@ -68,6 +71,10 @@ export const DashboardScreen: React.FC = () => {
 
   const [editingSavings, setEditingSavings] = useState(false);
   const [savingsInput, setSavingsInput] = useState(String(user.totalAccumulatedSavings || 0));
+
+  // Edit Monthly Savings History Correction State
+  const [editingMonthLabel, setEditingMonthLabel] = useState<string | null>(null);
+  const [monthSavingsInput, setMonthSavingsInput] = useState('');
 
   const [rolloverSuccess, setRolloverSuccess] = useState('');
 
@@ -92,6 +99,15 @@ export const DashboardScreen: React.FC = () => {
     if (!isNaN(val) && val >= 0) {
       updateAccumulatedSavingsAmount(val);
       setEditingSavings(false);
+    }
+  };
+
+  const handleCorrectMonthSavings = (monthLabel: string) => {
+    const val = parseFloat(monthSavingsInput);
+    if (!isNaN(val) && val >= 0) {
+      correctMonthlySavingsHistoryItem(monthLabel, val);
+      setEditingMonthLabel(null);
+      setMonthSavingsInput('');
     }
   };
 
@@ -160,7 +176,7 @@ export const DashboardScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* NEW FEATURE: Running Month Target Budget & Savings Tracker Header Card */}
+      {/* Running Month Target Budget & Savings Tracker Header Card */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Card 1: Running Month Target Budget */}
@@ -241,7 +257,7 @@ export const DashboardScreen: React.FC = () => {
               onClick={() => setEditingSavings(!editingSavings)}
               className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-200 text-xs font-bold flex items-center gap-1"
             >
-              <Edit2 className="w-3.5 h-3.5" /> Adjust
+              <Edit2 className="w-3.5 h-3.5" /> Correct Total
             </button>
           </div>
 
@@ -286,25 +302,66 @@ export const DashboardScreen: React.FC = () => {
           </button>
         </div>
 
-        {/* Card 3: Month-by-Month Savings History */}
+        {/* Card 3: Month-by-Month Savings History with Correction Controls */}
         <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3 flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-black uppercase text-slate-900 dark:text-white flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-indigo-500" />
-              <span>Savings History by Month</span>
+              <span>Savings History & Correction</span>
             </h3>
           </div>
 
-          <div className="space-y-2 max-h-40 overflow-y-auto">
+          <div className="space-y-2 max-h-48 overflow-y-auto">
             {monthlySavingsHistory.map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 text-xs">
-                <div>
-                  <p className="font-bold text-slate-900 dark:text-white">{item.month}</p>
-                  <p className="text-[10px] text-slate-400">Budget: {user.currencySymbol}{item.targetBudget}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-black text-emerald-500">+{user.currencySymbol}{item.savingsAchieved}</p>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-bold">Rolled Over</span>
+              <div key={idx} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 text-xs space-y-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-slate-900 dark:text-white">{item.month}</p>
+                    <p className="text-[10px] text-slate-400">Cap: {user.currencySymbol}{item.targetBudget}</p>
+                  </div>
+
+                  {editingMonthLabel === item.month ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        placeholder={String(item.savingsAchieved)}
+                        value={monthSavingsInput}
+                        onChange={e => setMonthSavingsInput(e.target.value)}
+                        className="w-20 p-1 text-xs font-bold rounded border border-emerald-500 bg-white dark:bg-slate-800"
+                      />
+                      <button
+                        onClick={() => handleCorrectMonthSavings(item.month)}
+                        className="p-1 rounded bg-emerald-500 text-white hover:bg-emerald-600"
+                      >
+                        <Check className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => setEditingMonthLabel(null)}
+                        className="p-1 rounded bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-right flex items-center gap-2">
+                      <div>
+                        <p className="font-black text-emerald-500">+{user.currencySymbol}{item.savingsAchieved}</p>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-bold">
+                          Rolled Over
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setEditingMonthLabel(item.month);
+                          setMonthSavingsInput(String(item.savingsAchieved));
+                        }}
+                        className="p-1 text-slate-400 hover:text-blue-500 rounded hover:bg-slate-100 dark:hover:bg-slate-800"
+                        title="Correct this month's savings amount"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
