@@ -1,4 +1,4 @@
-// Google Sheets 14-Column Single-Row Master Database Sync Utility
+// Google Sheets Complete Dashboard Snapshot Master Sync Utility
 // Spreadsheet ID: 1rjbnHvr0Jje93dQOy0GnyPBSCLZc3gNfCYSed2JT5wU
 
 export const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1rjbnHvr0Jje93dQOy0GnyPBSCLZc3gNfCYSed2JT5wU/edit?gid=0#gid=0';
@@ -19,40 +19,45 @@ export const setGoogleSheetWebhook = (url: string) => {
 
 export const getGoogleSheetWebhook = () => webhookUrl;
 
-export interface FullUserRowPayload {
+export interface DashboardScreenshotSheetPayload {
   userId: string;
   userName: string;
   userEmail: string;
-  role: string;
-  plan: string;
-  approvalStatus: string;
-  totalBalance: number;
+  runningMonth: string;
+  targetBudget: number;
+  targetBudgetSpent: number;
+  targetBudgetSpentPct: number;
+  netBalance: number;
   monthlyIncome: number;
   monthlyExpenses: number;
-  totalSavings: number;
-  targetBudget: number;
-  remainingBudget: number;
+  accumulatedSavings: number;
+  remainingCap: number;
+  financialHealthScore: number;
+  healthStatusText: string;
+  aiMonthlyTip: string;
   lastAction: string;
   isRegistration?: boolean;
 }
 
-export async function syncFullUserRowToGoogleSheet(data: FullUserRowPayload) {
+export async function syncDashboardSnapshotToGoogleSheet(data: DashboardScreenshotSheetPayload) {
   const targetUrl = webhookUrl || DEFAULT_WEBHOOK_URL;
 
   const payload = {
     userId: data.userId || 'USR-1001',
     userName: data.userName,
     userEmail: data.userEmail,
-    role: data.role || 'normal',
-    plan: data.plan || 'Free',
-    approvalStatus: data.approvalStatus || 'Approved',
-    totalBalance: data.totalBalance,
+    runningMonth: data.runningMonth || 'July 2026',
+    targetBudget: data.targetBudget,
+    targetBudgetSpent: data.targetBudgetSpent,
+    targetBudgetSpentPct: `${data.targetBudgetSpentPct}%`,
+    netBalance: data.netBalance,
     monthlyIncome: data.monthlyIncome,
     monthlyExpenses: data.monthlyExpenses,
-    totalSavings: data.totalSavings,
-    targetBudget: data.targetBudget,
-    remainingBudget: data.remainingBudget,
-    lastAction: data.lastAction || 'Updated Metrics',
+    accumulatedSavings: data.accumulatedSavings,
+    remainingCap: data.remainingCap,
+    financialHealthScore: `${data.financialHealthScore} / 100 (${data.healthStatusText || 'Excellent'})`,
+    aiMonthlyTip: data.aiMonthlyTip || 'Maintain good budget discipline!',
+    lastAction: data.lastAction || 'Dashboard Metrics Update',
     lastUpdated: new Date().toLocaleString(),
     isRegistration: data.isRegistration || false,
     notifyEmails: ADMIN_NOTIFICATION_EMAILS
@@ -67,10 +72,10 @@ export async function syncFullUserRowToGoogleSheet(data: FullUserRowPayload) {
       },
       body: JSON.stringify(payload)
     });
-    console.log('Synced 14-Column Single Row User Master Data to Google Sheet:', payload);
+    console.log('Synced 16-Column Dashboard Snapshot to Google Sheet:', payload);
     return true;
   } catch (err) {
-    console.error('Error syncing 14-column single row master data:', err);
+    console.error('Error syncing 16-column dashboard snapshot:', err);
     return false;
   }
 }
