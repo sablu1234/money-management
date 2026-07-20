@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Mail, Lock, User as UserIcon, Shield, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export const AuthScreen: React.FC = () => {
   const { loginUser, registerAccount } = useApp();
@@ -26,18 +26,18 @@ export const AuthScreen: React.FC = () => {
         return;
       }
 
-      const success = registerAccount(name, email);
-      if (!success) {
-        setErrorMsg('Account with this email already exists! Please login instead.');
+      const res = registerAccount(name, email, password);
+      if (!res.success) {
+        setErrorMsg(res.message);
       } else {
-        setSuccessMsg('Account created successfully! Please sign in with your credentials.');
+        setSuccessMsg(res.message);
         setIsLogin(true);
       }
     } else {
       // Handle Login
-      const success = loginUser(email);
-      if (!success) {
-        setErrorMsg('Account not found! Please create an account first by clicking "Register".');
+      const res = loginUser(email, password);
+      if (!res.success) {
+        setErrorMsg(res.message);
       }
     }
   };
@@ -73,7 +73,7 @@ export const AuthScreen: React.FC = () => {
                 : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
-            1. Register (Create Account)
+            1. Register
           </button>
 
           <button
@@ -88,7 +88,7 @@ export const AuthScreen: React.FC = () => {
                 : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
-            2. Login
+            2. Sign In
           </button>
         </div>
 
@@ -165,22 +165,13 @@ export const AuthScreen: React.FC = () => {
             type="submit"
             className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500 hover:from-blue-700 hover:to-emerald-600 text-white font-extrabold text-xs shadow-xl glow-blue flex items-center justify-center gap-2 active:scale-95 transition-all"
           >
-            <span>{isLogin ? 'Sign In' : 'Create Account & Proceed'}</span>
+            <span>{isLogin ? 'Sign In' : 'Create Account & Register'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
-        {/* Admin Login Shortcut for Sablu Hasan */}
-        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 text-center">
-          <p className="text-[11px] text-slate-400 font-medium mb-2">Admin Quick Login:</p>
-          <button
-            onClick={() => {
-              loginUser('sablu.hasan.dev@gmail.com');
-            }}
-            className="w-full py-2 px-3 rounded-xl bg-indigo-600 text-white text-xs font-extrabold shadow hover:bg-indigo-700 flex items-center justify-center gap-1.5"
-          >
-            <Shield className="w-3.5 h-3.5" /> Login as Sablu Hasan (Admin)
-          </button>
+        <div className="pt-2 text-center text-[11px] text-slate-400 font-medium">
+          New users are set to <span className="text-amber-500 font-bold">Pending Approval</span> status until approved by Sablu Hasan.
         </div>
 
       </div>

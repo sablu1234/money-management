@@ -1,19 +1,47 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { User, ExternalLink, Globe, Moon, Sun, CheckCircle2, Smartphone } from 'lucide-react';
+import { User, ExternalLink, Globe, Moon, Sun, CheckCircle2, Smartphone, Shield, Key } from 'lucide-react';
 import type { CurrencyCode } from '../../types';
 
 export const ProfileScreen: React.FC = () => {
-  const { user, toggleTheme, changeCurrency } = useApp();
+  const { user, toggleTheme, changeCurrency, adminPassword, changeAdminPassword } = useApp();
 
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [savedMsg, setSavedMsg] = useState('');
 
+  // Change Admin Password state
+  const [currentPassInput, setCurrentPassInput] = useState('');
+  const [newPassInput, setNewPassInput] = useState('');
+  const [passMsg, setPassMsg] = useState('');
+  const [passError, setPassError] = useState('');
+
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
     setSavedMsg('Profile settings saved successfully!');
     setTimeout(() => setSavedMsg(''), 3000);
+  };
+
+  const handleChangeAdminPass = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPassMsg('');
+    setPassError('');
+
+    if (currentPassInput !== adminPassword) {
+      setPassError('Current admin password is incorrect!');
+      return;
+    }
+
+    if (newPassInput.length < 6) {
+      setPassError('New password must be at least 6 characters long.');
+      return;
+    }
+
+    changeAdminPassword(newPassInput);
+    setPassMsg('Admin password updated successfully! Use your new password for next login.');
+    setCurrentPassInput('');
+    setNewPassInput('');
+    setTimeout(() => setPassMsg(''), 4000);
   };
 
   return (
@@ -53,6 +81,64 @@ export const ProfileScreen: React.FC = () => {
         <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4" />
           <span>{savedMsg}</span>
+        </div>
+      )}
+
+      {/* Change Password Card for Sablu Hasan (Admin) */}
+      {user.role === 'admin' && (
+        <div className="glass-card p-6 rounded-3xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-500/5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+              <Key className="w-4 h-4 text-indigo-500" />
+              Change Secret Admin Password
+            </h3>
+            <span className="text-[11px] font-bold text-indigo-500 flex items-center gap-1">
+              <Shield className="w-3.5 h-3.5" /> Sablu Hasan Only
+            </span>
+          </div>
+
+          {passError && (
+            <p className="text-xs font-bold text-rose-500">{passError}</p>
+          )}
+
+          {passMsg && (
+            <p className="text-xs font-bold text-emerald-500">{passMsg}</p>
+          )}
+
+          <form onSubmit={handleChangeAdminPass} className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-1">Current Password</label>
+              <input
+                type="password"
+                required
+                placeholder="Current Admin Pass"
+                value={currentPassInput}
+                onChange={e => setCurrentPassInput(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-1">New Password</label>
+              <input
+                type="password"
+                required
+                placeholder="New Admin Pass"
+                value={newPassInput}
+                onChange={e => setNewPassInput(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold"
+              />
+            </div>
+
+            <div className="flex items-end">
+              <button
+                type="submit"
+                className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-md"
+              >
+                Update Password
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

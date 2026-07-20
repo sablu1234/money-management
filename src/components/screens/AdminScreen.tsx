@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { Shield, Users, DollarSign, Activity, Lock, CheckCircle, ArrowUpRight } from 'lucide-react';
+import { Shield, Users, DollarSign, Activity, Lock, CheckCircle, ArrowUpRight, Check, X, Clock } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -22,7 +22,7 @@ const ADMIN_REVENUE_DATA = [
 ];
 
 export const AdminScreen: React.FC = () => {
-  const { user, adminUsers } = useApp();
+  const { user, adminUsers, approveUser, rejectUser } = useApp();
 
   if (user.role !== 'admin') {
     return (
@@ -32,11 +32,13 @@ export const AdminScreen: React.FC = () => {
         </div>
         <h2 className="text-xl font-black text-slate-900 dark:text-white">Admin Access Required</h2>
         <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
-          Please use the top <strong>Role Switcher</strong> to select "Admin" role to test this screen!
+          Only Sablu Hasan (Admin) can access this control panel.
         </p>
       </div>
     );
   }
+
+  const pendingUsers = adminUsers.filter(u => u.approvalStatus === 'Pending');
 
   return (
     <div className="space-y-6 py-4 animate-in fade-in duration-300">
@@ -48,9 +50,9 @@ export const AdminScreen: React.FC = () => {
             <Shield className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-black">MoneyFlow Admin Console</h1>
+            <h1 className="text-xl font-black">Sablu Hasan Admin Console</h1>
             <p className="text-xs text-slate-300 mt-0.5">
-              System analytics, SaaS subscription revenue, and user permissions
+              Approve user registrations, system analytics, and SaaS revenue
             </p>
           </div>
         </div>
@@ -64,22 +66,22 @@ export const AdminScreen: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="glass-card p-5 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-2">
           <div className="flex justify-between items-center text-slate-400">
-            <span className="text-[11px] font-bold uppercase">Total Platform Users</span>
-            <Users className="w-4 h-4 text-blue-500" />
+            <span className="text-[11px] font-bold uppercase">Pending Registrations</span>
+            <Clock className="w-4 h-4 text-amber-500" />
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-white">1,482</p>
-          <p className="text-[10px] text-emerald-500 font-bold flex items-center gap-1">
-            <ArrowUpRight className="w-3 h-3" /> +18.2% this month
-          </p>
+          <p className="text-2xl font-black text-amber-500">{pendingUsers.length} Requests</p>
+          <p className="text-[10px] text-slate-400">Requires Admin Approval</p>
         </div>
 
         <div className="glass-card p-5 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-2">
           <div className="flex justify-between items-center text-slate-400">
-            <span className="text-[11px] font-bold uppercase">Active SaaS Subscriptions</span>
-            <Shield className="w-4 h-4 text-indigo-500" />
+            <span className="text-[11px] font-bold uppercase">Total Platform Users</span>
+            <Users className="w-4 h-4 text-blue-500" />
           </div>
-          <p className="text-2xl font-black text-indigo-500">680 Premium</p>
-          <p className="text-[10px] text-slate-400">45.8% conversion rate</p>
+          <p className="text-2xl font-black text-slate-900 dark:text-white">{adminUsers.length}</p>
+          <p className="text-[10px] text-emerald-500 font-bold flex items-center gap-1">
+            <ArrowUpRight className="w-3 h-3" /> +18% growth
+          </p>
         </div>
 
         <div className="glass-card p-5 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-2">
@@ -103,7 +105,63 @@ export const AdminScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* Revenue Chart & User Management */}
+      {/* User Approvals Management Section */}
+      <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-4">
+        <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+          <Clock className="w-4 h-4 text-amber-500" />
+          User Registration Approvals ({pendingUsers.length} Pending)
+        </h3>
+
+        {pendingUsers.length === 0 ? (
+          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold text-center">
+            🎉 All registered users have been approved!
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] text-slate-400 uppercase font-extrabold">
+                  <th className="py-2.5 px-3">Name</th>
+                  <th className="py-2.5 px-3">Email</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3 text-center">Admin Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {pendingUsers.map(u => (
+                  <tr key={u.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                    <td className="py-3 px-3 font-bold text-slate-900 dark:text-white">{u.name}</td>
+                    <td className="py-3 px-3 text-slate-500">{u.email}</td>
+                    <td className="py-3 px-3">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/10 text-amber-500 border border-amber-500/30 animate-pulse">
+                        Pending Approval
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => approveUser(u.email)}
+                          className="px-3 py-1.5 rounded-xl bg-emerald-500 text-white font-extrabold text-[11px] shadow hover:bg-emerald-600 flex items-center gap-1"
+                        >
+                          <Check className="w-3.5 h-3.5" /> Approve Full Access
+                        </button>
+                        <button
+                          onClick={() => rejectUser(u.email)}
+                          className="px-3 py-1.5 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white font-bold text-[11px] flex items-center gap-1 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" /> Reject
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Revenue Chart & All Users Table */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Revenue Growth Chart */}
@@ -132,16 +190,16 @@ export const AdminScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* User Management Table */}
+        {/* All Users Directory */}
         <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-4">
-          <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">User Accounts & Roles</h3>
+          <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">All Registered Accounts</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] text-slate-400 uppercase font-extrabold">
                   <th className="py-2 px-3">User</th>
                   <th className="py-2 px-3">Role</th>
-                  <th className="py-2 px-3">Status</th>
+                  <th className="py-2 px-3">Approval</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -159,12 +217,12 @@ export const AdminScreen: React.FC = () => {
                     <td className="py-2.5 px-3">
                       <span
                         className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                          u.status === 'Active'
+                          u.approvalStatus === 'Approved'
                             ? 'bg-emerald-500/10 text-emerald-500'
-                            : 'bg-rose-500/10 text-rose-500'
+                            : 'bg-amber-500/10 text-amber-500'
                         }`}
                       >
-                        {u.status}
+                        {u.approvalStatus}
                       </span>
                     </td>
                   </tr>

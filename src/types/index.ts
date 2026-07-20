@@ -3,6 +3,7 @@ export type PaymentMethod = 'Cash' | 'Bank Account' | 'Credit Card' | 'Debit Car
 export type TransactionStatus = 'Completed' | 'Pending' | 'Recurring';
 export type UserRole = 'normal' | 'premium' | 'admin';
 export type CurrencyCode = 'USD' | 'BDT' | 'EUR' | 'GBP' | 'JPY';
+export type AccountStatus = 'Approved' | 'Pending' | 'Rejected';
 
 export interface Transaction {
   id: string;
@@ -22,7 +23,7 @@ export interface Budget {
   category: string;
   monthlyLimit: number;
   spentAmount: number;
-  period: string; // e.g. 'July 2026'
+  period: string;
 }
 
 export interface SavingsGoal {
@@ -51,6 +52,7 @@ export interface UserProfile {
   email: string;
   avatar: string;
   role: UserRole;
+  approvalStatus: AccountStatus;
   currency: CurrencyCode;
   currencySymbol: string;
   language: string;
@@ -71,13 +73,7 @@ export interface AdminUser {
   name: string;
   email: string;
   role: UserRole;
+  approvalStatus: AccountStatus;
   joinedDate: string;
-  status: 'Active' | 'Suspended';
   totalTransactions: number;
-}
-
-export interface AdminRevenueStat {
-  month: string;
-  subscriptions: number;
-  revenue: number;
 }

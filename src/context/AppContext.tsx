@@ -8,7 +8,8 @@ import type {
   UserRole,
   CurrencyCode,
   AIAdvice,
-  AdminUser
+  AdminUser,
+  AccountStatus
 } from '../types';
 
 export type ScreenView =
@@ -25,6 +26,15 @@ export type ScreenView =
 
 export type ModalType = 'addTransaction' | 'converter' | 'exportReport' | 'addBudget' | 'addGoal' | null;
 
+interface RegisteredUserAccount {
+  name: string;
+  email: string;
+  passwordHash: string;
+  role: UserRole;
+  approvalStatus: AccountStatus;
+  joinedDate: string;
+}
+
 interface AppContextType {
   user: UserProfile;
   transactions: Transaction[];
@@ -37,6 +47,7 @@ interface AppContextType {
   activeModal: ModalType;
   selectedCategoryFilter: string;
   isLoggedIn: boolean;
+  adminPassword: string;
   
   // Actions
   setCurrentView: (view: ScreenView) => void;
@@ -48,15 +59,19 @@ interface AppContextType {
   updateBudgetLimit: (id: string, limit: number) => void;
   addGoal: (goal: Omit<SavingsGoal, 'id' | 'currentAmount'>) => void;
   depositToGoal: (id: string, amount: number) => void;
-  switchRole: (role: UserRole) => void;
   toggleTheme: () => void;
   changeCurrency: (code: CurrencyCode) => void;
   markNotificationRead: (id: string) => void;
   clearAllNotifications: () => void;
   addAIQuery: (query: string, response: string) => void;
-  registerAccount: (name: string, email: string) => boolean;
-  loginUser: (email: string) => boolean;
+  
+  // Auth & Admin Actions
+  registerAccount: (name: string, email: string, password: string) => { success: boolean; message: string };
+  loginUser: (email: string, password: string) => { success: boolean; message: string };
   logoutUser: () => void;
+  approveUser: (email: string) => void;
+  rejectUser: (email: string) => void;
+  changeAdminPassword: (newPass: string) => void;
   
   // Calculations
   totalBalance: number;
@@ -108,34 +123,12 @@ const MOCK_INITIAL_TRANSACTIONS: Transaction[] = [
     paymentMethod: 'Credit Card',
     status: 'Completed',
     notes: 'Organic groceries & monthly supplies'
-  },
-  {
-    id: 'tx-4',
-    title: 'Electricity & Fiber Internet Bill',
-    amount: 110,
-    type: 'expense',
-    category: 'Bills',
-    date: '2026-07-10',
-    paymentMethod: 'Bank Account',
-    status: 'Completed',
-    notes: 'High speed fiber & utility bills'
-  },
-  {
-    id: 'tx-5',
-    title: 'Uber rides & Metro Pass',
-    amount: 65,
-    type: 'expense',
-    category: 'Transport',
-    date: '2026-07-12',
-    paymentMethod: 'Debit Card',
-    status: 'Completed'
   }
 ];
 
 const MOCK_INITIAL_BUDGETS: Budget[] = [
   { id: 'b-1', category: 'Food', monthlyLimit: 400, spentAmount: 145.50, period: 'July 2026' },
-  { id: 'b-2', category: 'Bills', monthlyLimit: 200, spentAmount: 110, period: 'July 2026' },
-  { id: 'b-3', category: 'Transport', monthlyLimit: 150, spentAmount: 65, period: 'July 2026' }
+  { id: 'b-2', category: 'Bills', monthlyLimit: 200, spentAmount: 110, period: 'July 2026' }
 ];
 
 const MOCK_INITIAL_GOALS: SavingsGoal[] = [
@@ -148,40 +141,48 @@ const MOCK_INITIAL_GOALS: SavingsGoal[] = [
     category: 'Technology',
     icon: 'Laptop',
     autoSaveMonthly: 300
-  },
-  {
-    id: 'g-2',
-    title: 'Emergency Rainy Day Fund',
-    targetAmount: 6000,
-    currentAmount: 4800,
-    deadline: '2026-12-31',
-    category: 'Security',
-    icon: 'ShieldCheck',
-    autoSaveMonthly: 400
-  }
-];
-
-const MOCK_NOTIFICATIONS: UserNotification[] = [
-  {
-    id: 'n-1',
-    title: 'Welcome to MoneyFlow',
-    message: 'Start by tracking your daily expenses or setting budget limits.',
-    date: 'Just now',
-    read: false,
-    type: 'info'
   }
 ];
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Default Authentication state is FALSE (User must login or register first!)
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     return localStorage.getItem('moneyflow_is_logged_in') === 'true';
   });
 
   const [currentView, setCurrentView] = useState<ScreenView>(() => {
     return localStorage.getItem('moneyflow_is_logged_in') === 'true' ? 'dashboard' : 'landing';
+  });
+
+  // Admin Secret Password (Default: SabluAdmin#2026)
+  const [adminPassword, setAdminPassword] = useState<string>(() => {
+    return localStorage.getItem('moneyflow_admin_pass') || 'SabluAdmin#2026';
+  });
+
+  // Database of Registered Users in LocalStorage
+  const [registeredUsers, setRegisteredUsers] = useState<RegisteredUserAccount[]>(() => {
+    const saved = localStorage.getItem('moneyflow_registered_db');
+    return saved
+      ? JSON.parse(saved)
+      : [
+          {
+            name: 'Sablu Hasan',
+            email: 'sablu.hasan.dev@gmail.com',
+            passwordHash: 'SabluAdmin#2026',
+            role: 'admin',
+            approvalStatus: 'Approved',
+            joinedDate: '2026-01-01'
+          },
+          {
+            name: 'Alex Vance',
+            email: 'alex@example.com',
+            passwordHash: 'user123',
+            role: 'normal',
+            approvalStatus: 'Pending',
+            joinedDate: '2026-07-19'
+          }
+        ];
   });
 
   const [user, setUser] = useState<UserProfile>(() => {
@@ -194,6 +195,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           email: 'sablu.hasan.dev@gmail.com',
           avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
           role: 'admin',
+          approvalStatus: 'Approved',
           currency: 'USD',
           currencySymbol: '$',
           language: 'English',
@@ -201,17 +203,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           portfolioUrl: 'https://sablu-hasan.vercel.app/',
           authorName: 'Sablu Hasan'
         };
-  });
-
-  // Registered Accounts DB in LocalStorage
-  const [registeredDb, setRegisteredDb] = useState<{ email: string; name: string; role: UserRole }[]>(() => {
-    const saved = localStorage.getItem('moneyflow_registered_users');
-    return saved
-      ? JSON.parse(saved)
-      : [
-          { email: 'sablu.hasan.dev@gmail.com', name: 'Sablu Hasan', role: 'admin' },
-          { email: 'user@example.com', name: 'Demo Normal User', role: 'normal' }
-        ];
   });
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
@@ -229,23 +220,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : MOCK_INITIAL_GOALS;
   });
 
-  const [notifications, setNotifications] = useState<UserNotification[]>(() => {
-    const saved = localStorage.getItem('moneyflow_notifications');
-    return saved ? JSON.parse(saved) : MOCK_NOTIFICATIONS;
-  });
-
+  const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [aiHistory, setAiHistory] = useState<AIAdvice[]>([]);
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('All');
 
-  // Persistence
+  // LocalStorage Persistence
   useEffect(() => {
     localStorage.setItem('moneyflow_is_logged_in', isLoggedIn ? 'true' : 'false');
   }, [isLoggedIn]);
 
   useEffect(() => {
-    localStorage.setItem('moneyflow_registered_users', JSON.stringify(registeredDb));
-  }, [registeredDb]);
+    localStorage.setItem('moneyflow_registered_db', JSON.stringify(registeredUsers));
+  }, [registeredUsers]);
+
+  useEffect(() => {
+    localStorage.setItem('moneyflow_admin_pass', adminPassword);
+  }, [adminPassword]);
 
   useEffect(() => {
     localStorage.setItem('moneyflow_user', JSON.stringify(user));
@@ -260,15 +251,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('moneyflow_transactions', JSON.stringify(transactions));
   }, [transactions]);
 
-  useEffect(() => {
-    localStorage.setItem('moneyflow_budgets', JSON.stringify(budgets));
-  }, [budgets]);
+  // Derived Admin Users list
+  const adminUsers: AdminUser[] = registeredUsers.map((u, i) => ({
+    id: `u-${i}`,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    approvalStatus: u.approvalStatus,
+    joinedDate: u.joinedDate,
+    totalTransactions: 5
+  }));
 
-  useEffect(() => {
-    localStorage.setItem('moneyflow_goals', JSON.stringify(goals));
-  }, [goals]);
-
-  // Derived Financial Metrics
+  // Financial Calculations
   const monthlyIncome = transactions
     .filter(t => t.type === 'income')
     .reduce((acc, t) => acc + t.amount, 0);
@@ -285,43 +279,76 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const savingsRatio = monthlyIncome > 0 ? (monthlyIncome - monthlyExpenses) / monthlyIncome : 0;
   const financialHealthScore = Math.min(100, Math.max(30, Math.round(50 + savingsRatio * 40 + (totalSavings / 1000) * 2)));
 
-  // Actions
-  const registerAccount = (name: string, email: string): boolean => {
-    const exists = registeredDb.some(u => u.email.toLowerCase() === email.toLowerCase());
-    if (exists) return false;
-
-    const isAdmin = email.toLowerCase().includes('sablu.hasan.dev@gmail.com');
-    const newUser = {
-      email: email.toLowerCase(),
-      name,
-      role: (isAdmin ? 'admin' : 'normal') as UserRole
-    };
-
-    setRegisteredDb(prev => [...prev, newUser]);
-    return true;
-  };
-
-  const loginUser = (emailInput: string): boolean => {
-    const lowerEmail = emailInput.toLowerCase();
-    const found = registeredDb.find(u => u.email.toLowerCase() === lowerEmail);
-
-    if (!found && !lowerEmail.includes('sablu.hasan.dev@gmail.com')) {
-      return false; // User not registered yet!
+  // AUTH ACTIONS
+  const registerAccount = (name: string, email: string, password: string) => {
+    const lowerEmail = email.toLowerCase().trim();
+    const exists = registeredUsers.some(u => u.email.toLowerCase() === lowerEmail);
+    if (exists) {
+      return { success: false, message: 'An account with this email already exists!' };
     }
 
-    const role: UserRole = found ? found.role : lowerEmail.includes('sablu.hasan.dev@gmail.com') ? 'admin' : 'normal';
-    const name = found ? found.name : 'Sablu Hasan';
+    const isAdmin = lowerEmail === 'sablu.hasan.dev@gmail.com';
+
+    const newAcc: RegisteredUserAccount = {
+      name,
+      email: lowerEmail,
+      passwordHash: password,
+      role: isAdmin ? 'admin' : 'normal',
+      approvalStatus: isAdmin ? 'Approved' : 'Pending', // New users get Pending status until Admin approves!
+      joinedDate: new Date().toISOString().split('T')[0]
+    };
+
+    setRegisteredUsers(prev => [...prev, newAcc]);
+    return {
+      success: true,
+      message: isAdmin
+        ? 'Admin account created successfully! Please sign in now.'
+        : 'Account created successfully! Your status is currently Pending Admin Approval.'
+    };
+  };
+
+  const loginUser = (emailInput: string, passwordInput: string) => {
+    const lowerEmail = emailInput.toLowerCase().trim();
+
+    // Check if logging in as Sablu Hasan (Admin)
+    if (lowerEmail === 'sablu.hasan.dev@gmail.com') {
+      if (passwordInput !== adminPassword) {
+        return { success: false, message: 'Invalid Admin Password! Please enter the correct password.' };
+      }
+
+      setUser(prev => ({
+        ...prev,
+        name: 'Sablu Hasan',
+        email: lowerEmail,
+        role: 'admin',
+        approvalStatus: 'Approved'
+      }));
+      setIsLoggedIn(true);
+      setCurrentView('dashboard');
+      return { success: true, message: 'Logged in as Sablu Hasan (Admin).' };
+    }
+
+    // Check normal users DB
+    const found = registeredUsers.find(u => u.email.toLowerCase() === lowerEmail);
+    if (!found) {
+      return { success: false, message: 'No account found with this email! Please register first.' };
+    }
+
+    if (found.passwordHash !== passwordInput) {
+      return { success: false, message: 'Incorrect password! Please try again.' };
+    }
 
     setUser(prev => ({
       ...prev,
-      name,
-      email: lowerEmail,
-      role
+      name: found.name,
+      email: found.email,
+      role: found.role,
+      approvalStatus: found.approvalStatus
     }));
 
     setIsLoggedIn(true);
     setCurrentView('dashboard');
-    return true;
+    return { success: true, message: 'Signed in successfully!' };
   };
 
   const logoutUser = () => {
@@ -330,6 +357,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentView('landing');
   };
 
+  // ADMIN APPROVAL ACTIONS
+  const approveUser = (userEmail: string) => {
+    setRegisteredUsers(prev =>
+      prev.map(u => (u.email.toLowerCase() === userEmail.toLowerCase() ? { ...u, approvalStatus: 'Approved' } : u))
+    );
+
+    // If active logged in user is this person, update status
+    if (user.email.toLowerCase() === userEmail.toLowerCase()) {
+      setUser(prev => ({ ...prev, approvalStatus: 'Approved' }));
+    }
+  };
+
+  const rejectUser = (userEmail: string) => {
+    setRegisteredUsers(prev =>
+      prev.map(u => (u.email.toLowerCase() === userEmail.toLowerCase() ? { ...u, approvalStatus: 'Rejected' } : u))
+    );
+  };
+
+  const changeAdminPassword = (newPass: string) => {
+    setAdminPassword(newPass);
+    setRegisteredUsers(prev =>
+      prev.map(u => (u.email.toLowerCase() === 'sablu.hasan.dev@gmail.com' ? { ...u, passwordHash: newPass } : u))
+    );
+  };
+
+  // Standard Financial Actions
   const addTransaction = (tx: Omit<Transaction, 'id'>) => {
     const newTx: Transaction = {
       ...tx,
@@ -353,12 +406,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addBudget = (b: Omit<Budget, 'id' | 'spentAmount'>) => {
-    const newBudget: Budget = {
-      ...b,
-      id: `b-${Date.now()}`,
-      spentAmount: 0
-    };
-    setBudgets(prev => [...prev, newBudget]);
+    setBudgets(prev => [...prev, { ...b, id: `b-${Date.now()}`, spentAmount: 0 }]);
   };
 
   const updateBudgetLimit = (id: string, limit: number) => {
@@ -366,22 +414,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addGoal = (g: Omit<SavingsGoal, 'id' | 'currentAmount'>) => {
-    const newGoal: SavingsGoal = {
-      ...g,
-      id: `g-${Date.now()}`,
-      currentAmount: 0
-    };
-    setGoals(prev => [...prev, newGoal]);
+    setGoals(prev => [...prev, { ...g, id: `g-${Date.now()}`, currentAmount: 0 }]);
   };
 
   const depositToGoal = (id: string, amount: number) => {
     setGoals(prev =>
       prev.map(g => (g.id === id ? { ...g, currentAmount: g.currentAmount + amount } : g))
     );
-  };
-
-  const switchRole = (role: UserRole) => {
-    setUser(prev => ({ ...prev, role }));
   };
 
   const toggleTheme = () => {
@@ -425,19 +464,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         goals,
         notifications,
         aiHistory,
-        adminUsers: registeredDb.map((u, i) => ({
-          id: `u-${i}`,
-          name: u.name,
-          email: u.email,
-          role: u.role,
-          joinedDate: '2026-07-20',
-          status: 'Active',
-          totalTransactions: 12
-        })),
+        adminUsers,
         currentView,
         activeModal,
         selectedCategoryFilter,
         isLoggedIn,
+        adminPassword,
         setCurrentView,
         setActiveModal,
         setSelectedCategoryFilter,
@@ -447,7 +479,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateBudgetLimit,
         addGoal,
         depositToGoal,
-        switchRole,
         toggleTheme,
         changeCurrency,
         markNotificationRead,
@@ -456,6 +487,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         registerAccount,
         loginUser,
         logoutUser,
+        approveUser,
+        rejectUser,
+        changeAdminPassword,
         totalBalance,
         monthlyIncome,
         monthlyExpenses,
