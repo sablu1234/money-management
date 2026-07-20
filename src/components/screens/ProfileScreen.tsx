@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { User, ExternalLink, Globe, Moon, Sun, CheckCircle2, Smartphone, Shield, Key } from 'lucide-react';
+import { User, ExternalLink, Globe, Moon, Sun, CheckCircle2, Smartphone, Shield, Key, RefreshCw } from 'lucide-react';
 import type { CurrencyCode } from '../../types';
 
 export const ProfileScreen: React.FC = () => {
-  const { user, toggleTheme, changeCurrency, adminPassword, changeAdminPassword } = useApp();
+  const { user, toggleTheme, changeCurrency, adminPassword, changeAdminPassword, resetAllDataToZero } = useApp();
 
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
@@ -196,6 +196,21 @@ export const ProfileScreen: React.FC = () => {
               Save Details
             </button>
           </form>
+
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+            <button
+              onClick={() => {
+                if (window.confirm('Reset all financial transactions to $0.00?')) {
+                  resetAllDataToZero();
+                  setSavedMsg('All financial balance reset to $0.00!');
+                  setTimeout(() => setSavedMsg(''), 3000);
+                }
+              }}
+              className="w-full py-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Reset All Balance to $0.00
+            </button>
+          </div>
         </div>
 
         {/* App Preferences */}

@@ -72,6 +72,7 @@ interface AppContextType {
   approveUser: (email: string) => void;
   rejectUser: (email: string) => void;
   changeAdminPassword: (newPass: string) => void;
+  resetAllDataToZero: () => void;
   
   // Calculations
   totalBalance: number;
@@ -90,60 +91,6 @@ const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
   JPY: '¥',
 };
 
-const MOCK_INITIAL_TRANSACTIONS: Transaction[] = [
-  {
-    id: 'tx-1',
-    title: 'Senior Developer Salary',
-    amount: 4500,
-    type: 'income',
-    category: 'Salary',
-    date: '2026-07-01',
-    paymentMethod: 'Bank Account',
-    status: 'Completed',
-    notes: 'Monthly salary credit from Tech Corp'
-  },
-  {
-    id: 'tx-2',
-    title: 'UI/UX Design Freelance Work',
-    amount: 1200,
-    type: 'income',
-    category: 'Freelancing',
-    date: '2026-07-08',
-    paymentMethod: 'Mobile Banking',
-    status: 'Completed',
-    notes: 'Fintech Mobile App Redesign'
-  },
-  {
-    id: 'tx-3',
-    title: 'Grocery Supermarket Shopping',
-    amount: 145.50,
-    type: 'expense',
-    category: 'Food',
-    date: '2026-07-15',
-    paymentMethod: 'Credit Card',
-    status: 'Completed',
-    notes: 'Organic groceries & monthly supplies'
-  }
-];
-
-const MOCK_INITIAL_BUDGETS: Budget[] = [
-  { id: 'b-1', category: 'Food', monthlyLimit: 400, spentAmount: 145.50, period: 'July 2026' },
-  { id: 'b-2', category: 'Bills', monthlyLimit: 200, spentAmount: 110, period: 'July 2026' }
-];
-
-const MOCK_INITIAL_GOALS: SavingsGoal[] = [
-  {
-    id: 'g-1',
-    title: 'MacBook Pro M3 Max',
-    targetAmount: 3500,
-    currentAmount: 2400,
-    deadline: '2026-10-31',
-    category: 'Technology',
-    icon: 'Laptop',
-    autoSaveMonthly: 300
-  }
-];
-
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -160,7 +107,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return localStorage.getItem('moneyflow_admin_pass') || 'SabluAdmin#2026';
   });
 
-  // Database of Registered Users in LocalStorage
+  // Registered Users DB
   const [registeredUsers, setRegisteredUsers] = useState<RegisteredUserAccount[]>(() => {
     const saved = localStorage.getItem('moneyflow_registered_db');
     return saved
@@ -173,14 +120,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             role: 'admin',
             approvalStatus: 'Approved',
             joinedDate: '2026-01-01'
-          },
-          {
-            name: 'Alex Vance',
-            email: 'alex@example.com',
-            passwordHash: 'user123',
-            role: 'normal',
-            approvalStatus: 'Pending',
-            joinedDate: '2026-07-19'
           }
         ];
   });
@@ -205,19 +144,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
   });
 
+  // Empty initial transactions so initial balance is 0.00!
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('moneyflow_transactions');
-    return saved ? JSON.parse(saved) : MOCK_INITIAL_TRANSACTIONS;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [budgets, setBudgets] = useState<Budget[]>(() => {
     const saved = localStorage.getItem('moneyflow_budgets');
-    return saved ? JSON.parse(saved) : MOCK_INITIAL_BUDGETS;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [goals, setGoals] = useState<SavingsGoal[]>(() => {
     const saved = localStorage.getItem('moneyflow_goals');
-    return saved ? JSON.parse(saved) : MOCK_INITIAL_GOALS;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
@@ -251,6 +191,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('moneyflow_transactions', JSON.stringify(transactions));
   }, [transactions]);
 
+  useEffect(() => {
+    localStorage.setItem('moneyflow_budgets', JSON.stringify(budgets));
+  }, [budgets]);
+
+  useEffect(() => {
+    localStorage.setItem('moneyflow_goals', JSON.stringify(goals));
+  }, [goals]);
+
   // Derived Admin Users list
   const adminUsers: AdminUser[] = registeredUsers.map((u, i) => ({
     id: `u-${i}`,
@@ -259,10 +207,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     role: u.role,
     approvalStatus: u.approvalStatus,
     joinedDate: u.joinedDate,
-    totalTransactions: 5
+    totalTransactions: 0
   }));
 
-  // Financial Calculations
+  // Clean Financial Calculations (Starts strictly at 0.00!)
   const monthlyIncome = transactions
     .filter(t => t.type === 'income')
     .reduce((acc, t) => acc + t.amount, 0);
@@ -271,13 +219,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => acc + t.amount, 0);
 
-  const totalBalance = monthlyIncome - monthlyExpenses + 8500;
+  const totalBalance = monthlyIncome - monthlyExpenses; // 0.00 by default!
   const totalSavings = goals.reduce((acc, g) => acc + g.currentAmount, 0);
   const totalBudgetLimit = budgets.reduce((acc, b) => acc + b.monthlyLimit, 0);
   const remainingBudget = Math.max(0, totalBudgetLimit - monthlyExpenses);
 
-  const savingsRatio = monthlyIncome > 0 ? (monthlyIncome - monthlyExpenses) / monthlyIncome : 0;
-  const financialHealthScore = Math.min(100, Math.max(30, Math.round(50 + savingsRatio * 40 + (totalSavings / 1000) * 2)));
+  const financialHealthScore = transactions.length === 0
+    ? 100
+    : Math.min(100, Math.max(30, Math.round(50 + ((monthlyIncome - monthlyExpenses) / (monthlyIncome || 1)) * 40)));
 
   // AUTH ACTIONS
   const registerAccount = (name: string, email: string, password: string) => {
@@ -294,7 +243,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       email: lowerEmail,
       passwordHash: password,
       role: isAdmin ? 'admin' : 'normal',
-      approvalStatus: isAdmin ? 'Approved' : 'Pending', // New users get Pending status until Admin approves!
+      approvalStatus: isAdmin ? 'Approved' : 'Pending',
       joinedDate: new Date().toISOString().split('T')[0]
     };
 
@@ -303,14 +252,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       success: true,
       message: isAdmin
         ? 'Admin account created successfully! Please sign in now.'
-        : 'Account created successfully! Your status is currently Pending Admin Approval.'
+        : 'Account created successfully! Status is currently Pending Admin Approval.'
     };
   };
 
   const loginUser = (emailInput: string, passwordInput: string) => {
     const lowerEmail = emailInput.toLowerCase().trim();
 
-    // Check if logging in as Sablu Hasan (Admin)
     if (lowerEmail === 'sablu.hasan.dev@gmail.com') {
       if (passwordInput !== adminPassword) {
         return { success: false, message: 'Invalid Admin Password! Please enter the correct password.' };
@@ -328,7 +276,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: true, message: 'Logged in as Sablu Hasan (Admin).' };
     }
 
-    // Check normal users DB
     const found = registeredUsers.find(u => u.email.toLowerCase() === lowerEmail);
     if (!found) {
       return { success: false, message: 'No account found with this email! Please register first.' };
@@ -357,13 +304,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentView('landing');
   };
 
-  // ADMIN APPROVAL ACTIONS
   const approveUser = (userEmail: string) => {
     setRegisteredUsers(prev =>
       prev.map(u => (u.email.toLowerCase() === userEmail.toLowerCase() ? { ...u, approvalStatus: 'Approved' } : u))
     );
 
-    // If active logged in user is this person, update status
     if (user.email.toLowerCase() === userEmail.toLowerCase()) {
       setUser(prev => ({ ...prev, approvalStatus: 'Approved' }));
     }
@@ -382,7 +327,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  // Standard Financial Actions
+  const resetAllDataToZero = () => {
+    setTransactions([]);
+    setBudgets([]);
+    setGoals([]);
+    localStorage.removeItem('moneyflow_transactions');
+    localStorage.removeItem('moneyflow_budgets');
+    localStorage.removeItem('moneyflow_goals');
+  };
+
   const addTransaction = (tx: Omit<Transaction, 'id'>) => {
     const newTx: Transaction = {
       ...tx,
@@ -490,6 +443,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         approveUser,
         rejectUser,
         changeAdminPassword,
+        resetAllDataToZero,
         totalBalance,
         monthlyIncome,
         monthlyExpenses,
