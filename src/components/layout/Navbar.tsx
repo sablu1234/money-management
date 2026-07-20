@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Bell,
@@ -12,7 +12,8 @@ import {
   ExternalLink,
   Menu,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  Calendar
 } from 'lucide-react';
 
 export const Navbar: React.FC<{ onToggleMobileSidebar: () => void }> = ({ onToggleMobileSidebar }) => {
@@ -30,6 +31,30 @@ export const Navbar: React.FC<{ onToggleMobileSidebar: () => void }> = ({ onTogg
 
   const [showNotifs, setShowNotifs] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  // Live Current Date & Time Clock
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formattedDate = currentTime.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+
+  const formattedTime = currentTime.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
 
   const unreadNotifs = notifications.filter(n => !n.read);
 
@@ -69,23 +94,47 @@ export const Navbar: React.FC<{ onToggleMobileSidebar: () => void }> = ({ onTogg
           </div>
         </div>
 
-        {/* Middle: Sablu Hasan Author Portfolio Badge */}
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-medium">
-          <span className="text-slate-500 dark:text-slate-400">Designed & Authored by</span>
-          <a
-            href={user.portfolioUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-bold hover:underline"
-          >
-            {user.authorName}
-            <ExternalLink className="w-3 h-3" />
-          </a>
+        {/* Middle: Live Current Date & Time Clock Badge + Portfolio Badge */}
+        <div className="hidden md:flex items-center gap-3">
+          
+          {/* Live Clock Badge */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs font-bold text-blue-600 dark:text-blue-400 shadow-sm">
+            <div className="flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5 text-blue-500" />
+              <span>{formattedDate}</span>
+            </div>
+            <span className="text-slate-300 dark:text-slate-700">|</span>
+            <div className="flex items-center gap-1 text-slate-900 dark:text-white font-mono font-extrabold">
+              <Clock className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
+              <span>{formattedTime}</span>
+            </div>
+          </div>
+
+          {/* Sablu Hasan Author Portfolio Badge */}
+          <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-medium">
+            <span className="text-slate-500 dark:text-slate-400">By</span>
+            <a
+              href={user.portfolioUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
+            >
+              {user.authorName}
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+
         </div>
 
         {/* Right Actions */}
         <div className="flex items-center gap-2 md:gap-3">
           
+          {/* Mobile Live Clock Display (Compact) */}
+          <div className="md:hidden flex items-center gap-1 px-2 py-1 rounded-xl bg-blue-500/10 text-[10px] font-bold text-blue-600 dark:text-blue-400">
+            <Clock className="w-3 h-3 text-emerald-500 animate-pulse" />
+            <span className="font-mono">{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          </div>
+
           {/* Status Badge */}
           {isLoggedIn && (
             <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold">
