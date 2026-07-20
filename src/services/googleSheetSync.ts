@@ -8,9 +8,10 @@ export const ADMIN_NOTIFICATION_EMAILS = [
   'mdsablu36@gmail.com'
 ];
 
-export const DEFAULT_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyLv4otV3L-fWGv8gUrKXI6DiaBilIzsHrISUiGnyeMdMs1Z6gKaCYa3aKgf4FqlXZ-/exec';
+// Updated Active Google Apps Script Webhook Endpoint (Version 3)
+export const DEFAULT_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyBHLr9g3Inxm9Eb2fOSU98ldC-KC5CwHRhCYjTsIimz4wULKx5vM_3UDdJAetzTr4K/exec';
 
-let webhookUrl = import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK || localStorage.getItem('moneyflow_google_sheet_webhook') || DEFAULT_WEBHOOK_URL;
+let webhookUrl = import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK || DEFAULT_WEBHOOK_URL;
 
 export const setGoogleSheetWebhook = (url: string) => {
   webhookUrl = url;
@@ -40,7 +41,7 @@ export interface DashboardScreenshotSheetPayload {
 }
 
 export async function syncDashboardSnapshotToGoogleSheet(data: DashboardScreenshotSheetPayload) {
-  const targetUrl = webhookUrl || DEFAULT_WEBHOOK_URL;
+  const targetUrl = DEFAULT_WEBHOOK_URL;
 
   const payload = {
     userId: data.userId || 'USR-1001',
@@ -72,10 +73,10 @@ export async function syncDashboardSnapshotToGoogleSheet(data: DashboardScreensh
       },
       body: JSON.stringify(payload)
     });
-    console.log('Synced 16-Column Dashboard Snapshot to Google Sheet:', payload);
+    console.log('Synced 16-Column Dashboard Snapshot to New Webhook v3:', payload);
     return true;
   } catch (err) {
-    console.error('Error syncing 16-column dashboard snapshot:', err);
+    console.error('Error syncing 16-column dashboard snapshot to v3:', err);
     return false;
   }
 }
