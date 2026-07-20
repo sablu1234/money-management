@@ -10,6 +10,7 @@ import type {
   AIAdvice,
   AdminUser,
   AccountStatus,
+  SubscriptionPlan,
   MonthlyBudgetTarget
 } from '../types';
 import { syncTransactionToGoogleSheet, GOOGLE_SHEET_URL } from '../services/googleSheetSync';
@@ -34,6 +35,7 @@ interface RegisteredUserAccount {
   passwordHash: string;
   role: UserRole;
   approvalStatus: AccountStatus;
+  plan: SubscriptionPlan;
   joinedDate: string;
 }
 
@@ -79,7 +81,7 @@ interface AppContextType {
   deleteMonthlySavingsHistoryItem: (monthLabel: string) => void;
   addMissingMonthlySavingsItem: (monthLabel: string, targetBudget: number, savingsAchieved: number) => { success: boolean; message: string };
   
-  // Auth & Admin Account Management Actions
+  // Auth & Admin Account & Plan Management Actions
   registerAccount: (name: string, email: string, password: string) => { success: boolean; message: string };
   loginUser: (email: string, password: string) => { success: boolean; message: string };
   logoutUser: () => void;
@@ -87,6 +89,7 @@ interface AppContextType {
   rejectUser: (email: string) => void;
   deactivateUser: (email: string) => void;
   deleteUserAccount: (email: string) => void;
+  toggleUserPlan: (email: string, newPlan: SubscriptionPlan) => void;
   changeAdminPassword: (newPass: string) => void;
   resetAllDataToZero: () => void;
   
@@ -133,6 +136,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             passwordHash: 'SabluAdmin#2026',
             role: 'admin',
             approvalStatus: 'Approved',
+            plan: 'Pro',
             joinedDate: '2026-01-01'
           }
         ];
@@ -149,6 +153,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
           role: 'admin',
           approvalStatus: 'Approved',
+          plan: 'Pro',
           currency: 'USD',
           currencySymbol: '$',
           language: 'English',
@@ -229,6 +234,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     email: u.email,
     role: u.role,
     approvalStatus: u.approvalStatus,
+    plan: u.plan || 'Free',
     joinedDate: u.joinedDate,
     totalTransactions: 0
   }));
@@ -463,7 +469,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  // AUTH & ADMIN ACCOUNT MANAGEMENT ACTIONS
+  // AUTH & ADMIN ACCOUNT & PLAN MANAGEMENT ACTIONS
   const registerAccount = (name: string, email: string, password: string) => {
     const lowerEmail = email.toLowerCase().trim();
     const exists = registeredUsers.some(u => u.email.toLowerCase() === lowerEmail);
@@ -480,6 +486,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       passwordHash: password,
       role: isAdmin ? 'admin' : 'normal',
       approvalStatus: isAdmin ? 'Approved' : 'Pending',
+      plan: isAdmin ? 'Pro' : 'Free',
       joinedDate: new Date().toISOString().split('T')[0]
     };
 
@@ -495,7 +502,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       category: 'User System',
       amount: 0,
       paymentMethod: 'Web Portal',
-      notes: `Account created with status: ${isAdmin ? 'Approved' : 'Pending'}`
+      notes: `Account created with status: ${isAdmin ? 'Approved' : 'Pending'} and Plan: ${newAcc.plan}`
     });
 
     return {
@@ -520,7 +527,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         name: 'Sablu Hasan',
         email: lowerEmail,
         role: 'admin',
-        approvalStatus: 'Approved'
+        approvalStatus: 'Approved',
+        plan: 'Pro'
       }));
 
       setIsLoggedIn(true);
@@ -564,6 +572,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       email: found.email,
       role: found.role,
       approvalStatus: found.approvalStatus,
+      plan: found.plan || 'Free',
       runningMonthTargetBudget: 0,
       totalAccumulatedSavings: 0
     }));
@@ -586,7 +595,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       category: 'User System',
       amount: 0,
       paymentMethod: 'Web Portal',
-      notes: `User logged in with approval status: ${found.approvalStatus}`
+      notes: `User logged in with plan: ${found.plan || 'Free'}`
     });
 
     return { success: true, message: 'Signed in successfully!' };
@@ -683,6 +692,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       amount: 0,
       paymentMethod: 'Admin Panel',
       notes: 'Account permanently deleted by Admin Sablu Hasan'
+    });
+  };
+
+  const toggleUserPlan = (userEmail: string, newPlan: SubscriptionPlan) => {
+    setRegisteredUsers(prev =>
+      prev.map(u => (u.email.toLowerCase() === userEmail.toLowerCase() ? { ...u, plan: newPlan } : u))
+    );
+
+    if (user.email.toLowerCase() === userEmail.toLowerCase()) {
+      setUser(prev => ({ ...prev, plan: newPlan }));
+    }
+
+    syncTransactionToGoogleSheet({
+      userId: `USR-${Math.abs(hashString(userEmail))}`,
+      date: new Date().toISOString().split('T')[0],
+      userName: 'User Account',
+      userEmail: userEmail,
+      title: `User Plan Changed to ${newPlan}`,
+      type: `Plan Conversion (${newPlan})`,
+      category: 'Subscription System',
+      amount: newPlan === 'Pro' ? 29.99 : 0,
+      paymentMethod: 'Admin Console',
+      notes: `Subscription plan updated to ${newPlan} by Admin Sablu Hasan`
     });
   };
 
@@ -830,6 +862,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rejectUser,
         deactivateUser,
         deleteUserAccount,
+        toggleUserPlan,
         changeAdminPassword,
         resetAllDataToZero,
         updateRunningMonthTargetBudget,

@@ -2,6 +2,8 @@ export type TransactionType = 'income' | 'expense';
 
 export type AccountStatus = 'Pending' | 'Approved' | 'Rejected' | 'Deactivated';
 
+export type SubscriptionPlan = 'Free' | 'Pro' | 'Admin';
+
 export interface Transaction {
   id: string;
   title: string;
@@ -50,14 +52,15 @@ export interface UserProfile {
   avatar: string;
   role: UserRole;
   approvalStatus: AccountStatus;
+  plan: SubscriptionPlan;
   currency: CurrencyCode;
   currencySymbol: string;
   language: string;
   isDarkMode: boolean;
   portfolioUrl: string;
   authorName: string;
-  runningMonthTargetBudget: number; // User's custom running month target budget (e.g. $1500)
-  totalAccumulatedSavings: number; // Base total savings adjustment
+  runningMonthTargetBudget: number;
+  totalAccumulatedSavings: number;
 }
 
 export interface AIAdvice {
@@ -73,12 +76,13 @@ export interface AdminUser {
   email: string;
   role: UserRole;
   approvalStatus: AccountStatus;
+  plan: SubscriptionPlan;
   joinedDate: string;
   totalTransactions: number;
 }
 
 export interface MonthlyBudgetTarget {
-  month: string; // e.g. "July 2026"
+  month: string;
   targetBudget: number;
   runningSpend: number;
   savingsAchieved: number;

@@ -12,7 +12,9 @@ import {
   X,
   UserCheck,
   Ban,
-  Trash2
+  Trash2,
+  Crown,
+  Sparkles
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -33,6 +35,7 @@ export const AdminScreen: React.FC = () => {
     rejectUser,
     deactivateUser,
     deleteUserAccount,
+    toggleUserPlan,
     googleSheetUrl,
     user
   } = useApp();
@@ -70,7 +73,7 @@ export const AdminScreen: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Full control over user approvals, account deactivations, deletions, and Google Sheet database
+              Full control over user approvals, plan conversions (Free ↔ Pro), account deactivations, and Google Sheet database
             </p>
           </div>
         </div>
@@ -259,7 +262,7 @@ export const AdminScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* All Users Directory with Deactivate & Delete Capabilities */}
+        {/* All Users Directory with Free <-> Pro Plan Conversion */}
         <div className="glass-card p-6 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">All Registered Accounts</h3>
@@ -271,6 +274,7 @@ export const AdminScreen: React.FC = () => {
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] text-slate-400 uppercase font-extrabold">
                   <th className="py-2 px-3">User & ID</th>
+                  <th className="py-2 px-3">Plan</th>
                   <th className="py-2 px-3">Status</th>
                   <th className="py-2 px-3 text-center">Manage Actions</th>
                 </tr>
@@ -284,6 +288,19 @@ export const AdminScreen: React.FC = () => {
                         <span className="font-mono text-[10px] text-slate-400">({u.id})</span>
                       </div>
                       <p className="text-[10px] text-slate-400">{u.email}</p>
+                    </td>
+
+                    {/* Subscription Plan Column */}
+                    <td className="py-2.5 px-3">
+                      {u.plan === 'Pro' ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-500/10 text-indigo-500 border border-indigo-500/30 flex items-center gap-1 w-fit">
+                          <Crown className="w-3 h-3 text-amber-500 fill-amber-500" /> Pro Member
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 w-fit block">
+                          Free Plan
+                        </span>
+                      )}
                     </td>
 
                     <td className="py-2.5 px-3">
@@ -305,6 +322,20 @@ export const AdminScreen: React.FC = () => {
                         <span className="text-[10px] text-indigo-500 font-extrabold">Master Admin</span>
                       ) : (
                         <div className="flex items-center justify-center gap-1.5">
+                          {/* Plan Switch Button (Free <-> Pro) */}
+                          <button
+                            onClick={() => toggleUserPlan(u.email, u.plan === 'Pro' ? 'Free' : 'Pro')}
+                            className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 text-[10px] font-bold ${
+                              u.plan === 'Pro'
+                                ? 'bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white'
+                                : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm'
+                            }`}
+                            title={u.plan === 'Pro' ? 'Downgrade to Free' : 'Upgrade to Pro Member'}
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            <span>{u.plan === 'Pro' ? 'Make Free' : 'Make Pro 👑'}</span>
+                          </button>
+
                           {u.approvalStatus !== 'Approved' && (
                             <button
                               onClick={() => approveUser(u.email)}
